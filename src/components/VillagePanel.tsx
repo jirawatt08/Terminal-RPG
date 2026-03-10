@@ -11,10 +11,16 @@ interface VillagePanelProps {
     upgradeItem: (item: Item, isEquipped: boolean) => void;
     sellItem: (item: Item) => void;
     toggleItemLock: (item: Item) => void;
+    buyPotion: (type: 'exp' | 'coin' | 'luck') => void;
+    acceptQuest: (type: 'kill_monster' | 'kill_boss') => void;
+    completeQuest: (id: string) => void;
 }
 
-export const VillagePanel: React.FC<VillagePanelProps> = ({ player, setPlayer, addLog, getEquipmentValue, upgradeItem, sellItem, toggleItemLock }) => {
-    const [villageTab, setVillageTab] = useState<'BLACKSMITH' | 'MERCHANT'>('BLACKSMITH');
+export const VillagePanel: React.FC<VillagePanelProps> = ({
+    player, setPlayer, addLog, getEquipmentValue, upgradeItem, sellItem, toggleItemLock,
+    buyPotion, acceptQuest, completeQuest
+}) => {
+    const [villageTab, setVillageTab] = useState<'BLACKSMITH' | 'MERCHANT' | 'ALCHEMIST' | 'QUEST_BOARD'>('BLACKSMITH');
 
     return (
         <div className="flex-1 p-6 overflow-y-auto flex flex-col">
@@ -35,6 +41,18 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({ player, setPlayer, a
                     className={`flex-1 py-2 text-sm font-bold border ${villageTab === 'MERCHANT' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
                 >
                     MERCHANT
+                </button>
+                <button
+                    onClick={() => setVillageTab('ALCHEMIST')}
+                    className={`flex-1 py-2 text-sm font-bold border ${villageTab === 'ALCHEMIST' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
+                >
+                    ALCHEMIST
+                </button>
+                <button
+                    onClick={() => setVillageTab('QUEST_BOARD')}
+                    className={`flex-1 py-2 text-sm font-bold border ${villageTab === 'QUEST_BOARD' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
+                >
+                    QUEST BOARD
                 </button>
             </div>
 
@@ -193,6 +211,105 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({ player, setPlayer, a
                             ))}
                             {player.inventory.length === 0 && (
                                 <div className="text-xs text-gray-600 italic">Inventory is empty.</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {villageTab === 'ALCHEMIST' && (
+                <div className="flex flex-col gap-6">
+                    <p className="text-gray-400 text-sm">Buy potions to temporarily boost your stats. Potions are consumed after killing monsters/bosses.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                            { type: 'exp', name: 'Experience Potion', desc: 'Boosts EXP gain by 50%+' },
+                            { type: 'coin', name: 'Wealth Potion', desc: 'Boosts Gold gain by 50%+' },
+                            { type: 'luck', name: 'Luck Potion', desc: 'Increases Luck by 50+' }
+                        ].map(p => (
+                            <div key={p.type} className="border border-green-900 bg-black p-4 flex flex-col justify-between">
+                                <div>
+                                    <h3 className="text-green-500 font-bold text-sm mb-1 uppercase">{p.name}</h3>
+                                    <p className="text-[10px] text-gray-500 mb-4">{p.desc}</p>
+                                </div>
+                                <button
+                                    onClick={() => buyPotion(p.type as any)}
+                                    disabled={player.gold < (200 + (player.stage * 100))}
+                                    className="w-full py-2 bg-green-900/20 text-green-400 border border-green-900 hover:bg-green-900/40 text-xs disabled:opacity-50"
+                                >
+                                    Buy ({200 + (player.stage * 100)}G)
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    {player.potions.length > 0 && (
+                        <div>
+                            <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase">Active Effects</h3>
+                            <div className="space-y-2">
+                                {player.potions.map((p, idx) => (
+                                    <div key={idx} className="bg-green-900/10 border border-green-900/30 p-2 text-[10px] flex justify-between uppercase">
+                                        <span className="text-green-400">{p.type} Stacks ({Math.ceil(p.duration / 10)})</span>
+                                        <span className="text-gray-500">{p.duration} Kills total</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {villageTab === 'QUEST_BOARD' && (
+                <div className="flex flex-col gap-6">
+                    <p className="text-gray-400 text-sm">Accept quests to earn extra rewards. Rewards scale with stage.</p>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => acceptQuest('kill_monster')}
+                            disabled={player.quests.filter(q => q.requirement.type === 'kill_monster').length >= 3}
+                            className="flex-1 py-3 bg-blue-900/20 text-blue-400 border border-blue-900 hover:bg-blue-900/40 text-xs disabled:opacity-50 font-bold"
+                        >
+                            Accept Monster Hunt
+                        </button>
+                        <button
+                            onClick={() => acceptQuest('kill_boss')}
+                            disabled={player.quests.filter(q => q.requirement.type === 'kill_boss').length >= 3}
+                            className="flex-1 py-3 bg-red-900/20 text-red-400 border border-red-900 hover:bg-red-900/40 text-xs disabled:opacity-50 font-bold"
+                        >
+                            Accept Boss Slayer
+                        </button>
+                    </div>
+
+                    <div>
+                        <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase">Active Quests ({player.quests.length}/6)</h3>
+                        <div className="space-y-3">
+                            {player.quests.map(q => (
+                                <div key={q.id} className="border border-gray-800 bg-black p-4 flex justify-between items-center">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="text-sm font-bold text-gray-200">{q.name}</h4>
+                                            {q.completed && <span className="text-[10px] bg-green-900 text-green-400 px-1 rounded">READY</span>}
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">{q.description}</p>
+                                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full transition-all ${q.completed ? 'bg-green-500' : 'bg-blue-500'}`}
+                                                style={{ width: `${Math.min(100, (q.requirement.current / q.requirement.target) * 100)}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className="flex justify-between mt-1 text-[10px] text-gray-600">
+                                            <span>Progress: {q.requirement.current} / {q.requirement.target}</span>
+                                            <span className="text-yellow-600">Reward: {q.reward.exp} EXP | {q.reward.gold} Gold</span>
+                                        </div>
+                                    </div>
+                                    {q.completed && (
+                                        <button
+                                            onClick={() => completeQuest(q.id)}
+                                            className="ml-4 px-4 py-2 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 animate-pulse"
+                                        >
+                                            CLAIM
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                            {player.quests.length === 0 && (
+                                <p className="text-gray-600 italic text-xs text-center py-4 bg-gray-900/50 border border-dashed border-gray-800">No active quests.</p>
                             )}
                         </div>
                     </div>

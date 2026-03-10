@@ -59,6 +59,9 @@ export default function App() {
             upgradeItem={actions.upgradeItem}
             sellItem={actions.sellItem}
             toggleItemLock={actions.toggleItemLock}
+            buyPotion={actions.buyPotion}
+            acceptQuest={actions.acceptQuest}
+            completeQuest={actions.completeQuest}
           />
         ) : gameState === 'SETTINGS' ? (
           <SettingsPanel
@@ -78,6 +81,7 @@ export default function App() {
             currentEnemies={currentEnemies}
             logsEndRef={refs.logsEndRef}
             player={player}
+            addLog={game.addLog}
           />
         )}
       </div>

@@ -2,7 +2,38 @@ export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'My
 
 export type ItemType = 'Weapon' | 'Armor' | 'Accessory';
 
-export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze' | 'luck' | 'statusChance' | 'reduction';
+export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze' | 'luck' | 'statusChance' | 'reduction' | 'expBonus' | 'goldBonus';
+
+export interface PotionEffect {
+  type: 'exp' | 'coin' | 'luck';
+  value: number;
+  duration: number; // in kills
+}
+
+export interface Potion {
+  id: string;
+  name: string;
+  effect: PotionEffect;
+  cost: number;
+}
+
+export interface QuestRequirement {
+  type: 'kill_monster' | 'kill_boss';
+  target: number;
+  current: number;
+}
+
+export interface Quest {
+  id: string;
+  name: string;
+  description: string;
+  requirement: QuestRequirement;
+  reward: {
+    exp: number;
+    gold: number;
+  };
+  completed: boolean;
+}
 
 export type StatusEffectType = 'poison' | 'burn' | 'stun' | 'freeze';
 
@@ -89,6 +120,10 @@ export interface Player {
     goldBonus: number; // Permanent Gold % bonus
     statBonus: number; // Extra stat points per level
   };
+  potions: PotionEffect[];
+  quests: Quest[];
+  monstersKilled: number;
+  bossesKilled: number;
 }
 
 export interface EnemySkill {

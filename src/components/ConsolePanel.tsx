@@ -9,9 +9,10 @@ interface ConsolePanelProps {
     currentEnemies: Enemy[];
     logsEndRef: React.RefObject<HTMLDivElement>;
     player: Player;
+    addLog: (text: string, type?: LogEntry['type']) => void;
 }
 
-export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, currentEnemies, logsEndRef, player }) => {
+export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, currentEnemies, logsEndRef, player, addLog }) => {
     const [activeTab, setActiveTab] = useState<TerminalTab>('ALL');
 
     const filteredLogs = logs.filter(log => {
@@ -21,6 +22,20 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, cur
         if (activeTab === 'SELL') return log.type === 'sell';
         return true;
     });
+
+    const showPatchNotes = () => {
+        const patchNotes = [
+            `[PATCH V1.2] ----------------------------`,
+            `- Added Alchemy: Buy potions in village to boost EXP, Gold, or Luck.`,
+            `- Added Adventurer's Guild: Accept monster hunt and boss slayer quests.`,
+            `- Quests and Potions scale with Stage.`,
+            `- Item Locking: Prevent selling of valuable gear.`,
+            `- Damage Reduction: New stat for armor to tank more hits.`,
+            `- Boss Balance: Reduced OP passives for high-stage bosses.`,
+            `-------------------------------------------`
+        ];
+        patchNotes.reverse().forEach(note => player.uid && logs.find(l => l.text === note) ? null : addLog(note, 'system'));
+    };
 
     return (
         <>
@@ -35,12 +50,18 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, cur
                             {tab}
                         </button>
                     ))}
+                    <button
+                        onClick={showPatchNotes}
+                        className="px-3 py-1 text-xs font-bold border border-blue-900 text-blue-400 bg-blue-900/10 hover:bg-blue-900/20"
+                    >
+                        PATCH_NOTES
+                    </button>
                 </div>
                 <span className="flex items-center gap-2">
                     STATE:
                     <span className={`font-bold ${gameState === 'IDLE' ? 'text-gray-400' :
-                            gameState === 'FARMING' ? 'text-green-400' :
-                                gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' ? 'text-red-500' : 'text-red-700 animate-pulse'
+                        gameState === 'FARMING' ? 'text-green-400' :
+                            gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' ? 'text-red-500' : 'text-red-700 animate-pulse'
                         }`}>
                         [{gameState}]
                     </span>
@@ -81,7 +102,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, cur
                                 <span className="truncate pr-2">{idx === 0 ? 'TARGET: ' : ''}{enemy.name}</span>
                                 {enemy.isBoss && <Skull size={14} className="shrink-0" />}
                             </div>
-                            
+
                             {player.settings.barMode === 'bar' && (
                                 <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden mb-1">
                                     <div
@@ -90,10 +111,10 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, cur
                                     />
                                 </div>
                             )}
-                            
+
                             <div className="flex justify-between items-center">
                                 <div className="text-[10px] text-gray-500">
-                                    {player.settings.barMode === 'percent' 
+                                    {player.settings.barMode === 'percent'
                                         ? `${Math.max(0, (enemy.hp / enemy.maxHp) * 100).toFixed(1)}% HP`
                                         : `${Math.max(0, enemy.hp)} / ${enemy.maxHp} HP`
                                     }

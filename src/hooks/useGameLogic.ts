@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithGoogle, logout as firebaseLogout, savePlayerData, getPlayerData, saveRebornRecord, isFirebaseConfigured } from '../services/firebase';
-import { Player, Enemy, GameState, LogEntry, Item, PlayerClass } from '../types';
+import { Player, Enemy, GameState, LogEntry, Item, PlayerClass, Quest, Potion } from '../types';
 import { CLASS_SKILLS } from '../constants';
 import { generateEnemies, generateLoot, generateId } from '../utils';
 
@@ -28,7 +28,11 @@ export function useGameLogic() {
             expBonus: 0,
             goldBonus: 0,
             statBonus: 0
-        }
+        },
+        potions: [],
+        quests: [],
+        monstersKilled: 0,
+        bossesKilled: 0
     });
 
     const [gameState, setGameState] = useState<GameState>('IDLE');
@@ -210,10 +214,14 @@ export function useGameLogic() {
         return total;
     };
 
+    const potionExpBonus = player.potions.filter(p => p.type === 'exp').reduce((acc, p) => acc + p.value, 0);
+    const potionGoldBonus = player.potions.filter(p => p.type === 'coin').reduce((acc, p) => acc + p.value, 0);
+    const potionLuckBonus = player.potions.filter(p => p.type === 'luck').reduce((acc, p) => acc + p.value, 0);
+
     const totalAttack = Math.floor((player.baseAttack + (player.stats.str * 2) + getEquipmentValue(player.equipment.weapon)) * (1 + bonusAtkPct + setBonusAtkPct + (player.rebornUpgrades.atkBonus / 100)));
     const totalDefense = Math.floor((player.baseDefense + (player.stats.vit * 1.5) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
     const totalMagicAttack = Math.floor((player.stats.int * 2 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
-    const totalLuck = player.stats.luk + getEffectTotal('luck');
+    const totalLuck = player.stats.luk + getEffectTotal('luck') + potionLuckBonus;
     const totalStatusChance = 2 + Math.floor(player.stats.int / 5) + getEffectTotal('statusChance');
 
     let critChance = getEffectTotal('crit') + bonusCritChance + setBonusCrit;
@@ -425,8 +433,27 @@ export function useGameLogic() {
                 for (const target of enemies) {
                     if (target.hp <= 0) {
                         addLog(`[KILL] ${target.name} terminated.`, 'success');
-                        const expGain = Math.floor(target.expReward * (1 + (newPlayer.rebornUpgrades.expBonus / 100) + setBonusExpPct));
-                        const goldGain = Math.floor(target.goldReward * (1 + (newPlayer.rebornUpgrades.goldBonus / 100) + setBonusGoldPct));
+
+                        // Update Quests and Kills
+                        if (target.isBoss) newPlayer.bossesKilled++;
+                        else newPlayer.monstersKilled++;
+
+                        newPlayer.quests = newPlayer.quests.map(q => {
+                            if (q.completed) return q;
+                            if (q.requirement.type === 'kill_monster' && !target.isBoss) q.requirement.current++;
+                            if (q.requirement.type === 'kill_boss' && target.isBoss) q.requirement.current++;
+                            if (q.requirement.current >= q.requirement.target) {
+                                q.completed = true;
+                                addLog(`[QUEST] Quest "${q.name}" objective met! Return to Quest Board for reward.`, 'success');
+                            }
+                            return q;
+                        });
+
+                        // Reduce potion duration (1 kill per monster)
+                        newPlayer.potions = newPlayer.potions.map(p => ({ ...p, duration: p.duration - 1 })).filter(p => p.duration > 0);
+
+                        const expGain = Math.floor(target.expReward * (1 + (newPlayer.rebornUpgrades.expBonus / 100) + setBonusExpPct + (potionExpBonus / 100)));
+                        const goldGain = Math.floor(target.goldReward * (1 + (newPlayer.rebornUpgrades.goldBonus / 100) + setBonusGoldPct + (potionGoldBonus / 100)));
                         newPlayer.exp += expGain;
                         newPlayer.gold += goldGain;
                         addLog(`+ ${expGain} EXP | + ${goldGain} Gold`, 'info');
@@ -812,7 +839,11 @@ export function useGameLogic() {
             statusEffects: [],
             skillCooldown: 0,
             autoSkill: false,
-            autoBoss: false
+            autoBoss: false,
+            potions: [],
+            quests: [],
+            monstersKilled: 0,
+            bossesKilled: 0
         }));
 
         setGameState('IDLE');
@@ -861,6 +892,96 @@ export function useGameLogic() {
         }
     };
 
+    const buyPotion = (type: 'exp' | 'coin' | 'luck') => {
+        const cost = 200 + (player.stage * 100);
+        if (player.gold < cost) {
+            addLog(`Insufficient funds for potion. Need ${cost}G.`, 'error');
+            return;
+        }
+        setPlayer(prev => {
+            const existingIdx = prev.potions.findIndex(p => p.type === type);
+            const newPotions = [...prev.potions];
+            const potionValue = 50 + (prev.stage * 5);
+            const potionDuration = 10; // 1 potion = 10 kills
+
+            if (existingIdx !== -1) {
+                const p = newPotions[existingIdx];
+                if (p.duration >= 1000) { // 100 stacks max
+                    addLog(`Maximum ${type.toUpperCase()} potion stacks reached (100).`, 'warning');
+                    return prev;
+                }
+                newPotions[existingIdx] = {
+                    ...p,
+                    duration: Math.min(1000, p.duration + potionDuration),
+                    value: potionValue // Update to latest stage value
+                };
+            } else {
+                newPotions.push({ type, value: potionValue, duration: potionDuration });
+            }
+
+            return {
+                ...prev,
+                gold: prev.gold - cost,
+                potions: newPotions
+            };
+        });
+        addLog(`Acquired ${type.toUpperCase()} Potion! Stacks updated.`, 'success');
+    };
+
+    const acceptQuest = (type: 'kill_monster' | 'kill_boss') => {
+        if (player.quests.length >= 6) {
+            addLog('Quest board is full! (Max 6)', 'error');
+            return;
+        }
+
+        const id = generateId();
+        const stageMod = 1 + (player.stage * 0.2);
+        const targetCount = type === 'kill_monster' ? 10 + (player.stage * 2) : 2 + Math.floor(player.stage / 2);
+
+        const expReward = Math.floor((type === 'kill_monster' ? 500 : 2000) * stageMod);
+        const goldReward = Math.floor((type === 'kill_monster' ? 250 : 1000) * stageMod);
+
+        const newQuest: Quest = {
+            id,
+            name: type === 'kill_monster' ? `Monster Hunt` : `Boss Slayer`,
+            description: type === 'kill_monster' ? `Defeat ${targetCount} regular enemies.` : `Defeat ${targetCount} bosses.`,
+            requirement: { type, target: targetCount, current: 0 },
+            reward: { exp: expReward, gold: goldReward },
+            completed: false
+        };
+
+        setPlayer(prev => ({ ...prev, quests: [...prev.quests, newQuest] }));
+        addLog(`Quest accepted: ${newQuest.name}. Visit the Quest Board for details.`, 'info');
+    };
+
+    const completeQuest = (questId: string) => {
+        setPlayer(prev => {
+            const quest = prev.quests.find(q => q.id === questId);
+            if (!quest || !quest.completed) return prev;
+
+            const newPlayer = {
+                ...prev,
+                exp: prev.exp + quest.reward.exp,
+                gold: prev.gold + quest.reward.gold,
+                quests: prev.quests.filter(q => q.id !== questId)
+            };
+
+            addLog(`Quest "${quest.name}" completed! +${quest.reward.exp} EXP | +${quest.reward.gold} Gold`, 'success');
+
+            // Level up check
+            if (newPlayer.exp >= newPlayer.maxExp) {
+                newPlayer.level += 1;
+                newPlayer.exp -= newPlayer.maxExp;
+                newPlayer.maxExp = Math.floor(newPlayer.maxExp * 1.5);
+                newPlayer.statPoints += 3 + newPlayer.rebornUpgrades.statBonus;
+                newPlayer.hp = Math.floor((newPlayer.maxHp + (newPlayer.stats.vit * 10)) * (1 + (vitMilestones * 0.05 + (newPlayer.playerClass === 'Warrior' ? 0.1 : newPlayer.playerClass === 'Paladin' ? 0.2 : 0)) + setBonusHpPct + (newPlayer.rebornUpgrades.hpBonus / 100))); // Rough maxHp calc for heal
+                addLog(`[LEVEL UP] Reached Level ${newPlayer.level}!`, 'success');
+            }
+
+            return newPlayer;
+        });
+    };
+
     return {
         player,
         setPlayer,
@@ -875,14 +996,15 @@ export function useGameLogic() {
             activeSets, hasSet,
             setBonusGoldPct, setBonusExpPct,
             maxHp, maxMp, totalAttack, totalDefense, totalMagicAttack, totalLuck, totalStatusChance,
-            critChance, finalCritDmg, dodgeChance, lifesteal, getEquipmentValue
+            critChance, finalCritDmg, dodgeChance, lifesteal, getEquipmentValue,
+            potionExpBonus, potionGoldBonus, potionLuckBonus
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,
             enterVillage, openSettings, openDashboard, runAway, showHelp,
             equipItem, sellItem, upgradeItem, toggleItemLock, heal, allocateStat,
             chooseClass, reborn, buyRebornUpgrade, manualSave, setShowLoginModal,
-            login, logout
+            login, logout, buyPotion, acceptQuest, completeQuest
         },
         showLoginModal,
         isLoggingIn,
