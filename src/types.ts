@@ -5,7 +5,7 @@ export type ItemType = 'Weapon' | 'Armor' | 'Accessory';
 export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze' | 'luck' | 'statusChance' | 'reduction' | 'expBonus' | 'goldBonus';
 
 export interface PotionEffect {
-  type: 'exp' | 'coin' | 'luck';
+  type: 'exp' | 'coin' | 'luck' | 'health';
   value: number;
   duration: number; // in kills
 }
@@ -108,6 +108,8 @@ export interface Player {
   autoBoss: boolean;
   inventoryLimit: number;
   autoSellUnlocked: boolean;
+  autoHealUnlocked: boolean;
+  autoHealThreshold: number; // HP % to trigger auto-heal
   skillCooldown: number;
   statusEffects: StatusEffect[];
   settings: PlayerSettings;

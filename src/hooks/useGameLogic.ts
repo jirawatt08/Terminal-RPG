@@ -17,6 +17,8 @@ export function useGameLogic() {
         autoBoss: false,
         inventoryLimit: 20,
         autoSellUnlocked: false,
+        autoHealUnlocked: false,
+        autoHealThreshold: 30, // Default 30%
         skillCooldown: 0,
         statusEffects: [],
         settings: { barMode: 'bar', reduceUi: false },
@@ -242,6 +244,7 @@ export function useGameLogic() {
         if (gameState === 'IDLE') return;
 
         const interval = setInterval(() => {
+            if (document.hidden) return; // Stabilize background execution
             setPlayer(prevPlayer => {
                 let newPlayer = {
                     ...prevPlayer,
@@ -583,6 +586,19 @@ export function useGameLogic() {
                         }
                         newPlayer.hp -= damageToPlayer;
 
+                        // Auto-Heal Logic
+                        const healthPotion = newPlayer.potions.find(p => p.type === 'health');
+                        if (newPlayer.autoHealUnlocked && healthPotion && healthPotion.duration > 0) {
+                            const hpPercent = (newPlayer.hp / maxHp) * 100;
+                            if (hpPercent <= newPlayer.autoHealThreshold && newPlayer.hp > 0) {
+                                const qualityBonus = 1 + (newPlayer.potionQualityUpgrade * 0.25);
+                                const healAmount = Math.floor(maxHp * 0.3 * qualityBonus); // 30% base healing
+                                newPlayer.hp = Math.min(maxHp, newPlayer.hp + healAmount);
+                                healthPotion.duration -= 1;
+                                addLog(`[AUTO-HEAL] Health dropped below ${newPlayer.autoHealThreshold}%! Used health potion. (+${healAmount} HP)`, 'success');
+                            }
+                        }
+
                         // Enemy Lifesteal Passive
                         if (enemy.passive?.type === 'lifesteal') {
                             const healAmount = Math.floor(damageToPlayer * (enemy.passive.value / 100));
@@ -823,7 +839,11 @@ export function useGameLogic() {
                 statusEffects: [],
                 autoSkill: false,
                 autoBoss: false,
+                autoHealUnlocked: false,
+                autoHealThreshold: 30,
                 inventoryLimit: player.inventoryLimit,
+                potionMaxBuyUpgrade: 0,
+                potionQualityUpgrade: 0,
             });
         }
 
@@ -847,6 +867,8 @@ export function useGameLogic() {
             rebornCount: prev.rebornCount + 1,
             inventoryLimit: 20,
             autoSellUnlocked: false,
+            autoHealUnlocked: false,
+            autoHealThreshold: 30,
             autoSell: { Common: false, Uncommon: false, Rare: false, Epic: false, Legendary: false, Mythic: false, Divine: false },
             skillCooldown: 0,
             autoSkill: false,
@@ -906,7 +928,7 @@ export function useGameLogic() {
         }
     };
 
-    const buyPotion = (type: 'exp' | 'coin' | 'luck') => {
+    const buyPotion = (type: 'exp' | 'coin' | 'luck' | 'health') => {
         const cost = 200 + (player.stage * 100);
         if (player.gold < cost) {
             addLog(`Insufficient funds for potion. Need ${cost}G.`, 'error');
@@ -971,8 +993,8 @@ export function useGameLogic() {
             addLog('Potion Quality reached maximum! (Max +200%)', 'warning');
             return;
         }
-        if (player.stage < (player.potionQualityUpgrade + 1) * 10) {
-            addLog(`Must reach Stage ${(player.potionQualityUpgrade + 1) * 10} for next quality upgrade.`, 'warning');
+        if (player.stage < player.potionQualityUpgrade * 10) {
+            addLog(`Must reach Stage ${player.potionQualityUpgrade * 10} for next quality upgrade.`, 'warning');
             return;
         }
         const cost = 10000 * Math.pow(2.2, player.potionQualityUpgrade);

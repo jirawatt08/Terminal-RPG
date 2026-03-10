@@ -234,8 +234,8 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                             <div className="text-[10px] text-green-500 mb-1 uppercase">Active Potions</div>
                                             {player.potions.map((p, idx) => (
                                                 <div key={idx} className="flex justify-between text-[10px]">
-                                                    <span className="text-green-400/70">{p.type.toUpperCase()} stacks ({Math.ceil(p.duration / 10)})</span>
-                                                    <span className="text-gray-600">{p.duration} Kills</span>
+                                                    <span className="text-green-400/70">{p.type.toUpperCase()} ({Math.floor(p.duration)})</span>
+                                                    <span className="text-gray-600">{p.type === 'health' ? 'USES' : 'KILLS'}</span>
                                                 </div>
                                             ))}
                                         </div>

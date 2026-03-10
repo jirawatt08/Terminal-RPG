@@ -171,15 +171,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                         <Trophy size={16} />
                     </button>
 
-                    <div className="pt-4 border-t border-gray-800">
-                        <button
-                            onClick={actions.showHelp}
-                            className="w-full flex items-center justify-between p-3 border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 transition-colors text-left cursor-pointer mb-3"
-                        >
-                            <span>./help</span>
-                            <Info size={16} />
-                        </button>
-
+                    <div className="pt-4 border-t border-gray-800 space-y-3">
                         <button
                             onClick={actions.heal}
                             disabled={player.gold < Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05)) || (player.hp >= stats.maxHp && player.mp >= stats.maxMp) || gameState === 'DEAD'}
@@ -187,6 +179,47 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                         >
                             <span>./heal</span>
                             <span className="text-xs">-{Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05))}G</span>
+                        </button>
+
+                        {(player.autoHealUnlocked || player.rebornCount > 0) && (
+                            <div className="p-3 border border-green-500/30 bg-green-500/5 space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] text-green-500 font-bold uppercase flex items-center gap-1">Auto-Heal</span>
+                                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-gray-400 hover:text-green-400 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={player.autoHealUnlocked}
+                                            onChange={(e) => setPlayer(p => ({ ...p, autoHealUnlocked: e.target.checked }))}
+                                            className="accent-green-500"
+                                        />
+                                        ENB
+                                    </label>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex justify-between text-[8px] text-gray-500 uppercase">
+                                        <span>Use at:</span>
+                                        <span className="text-green-500">{player.autoHealThreshold}% HP</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="10"
+                                        max="90"
+                                        step="5"
+                                        disabled={!player.autoHealUnlocked}
+                                        value={player.autoHealThreshold}
+                                        onChange={(e) => setPlayer(p => ({ ...p, autoHealThreshold: parseInt(e.target.value) }))}
+                                        className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-500 disabled:opacity-30"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={actions.showHelp}
+                            className="w-full flex items-center justify-between p-3 border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 transition-colors text-left cursor-pointer"
+                        >
+                            <span>./help</span>
+                            <Info size={16} />
                         </button>
                     </div>
 

@@ -107,7 +107,8 @@ const FIELD_MAP: Record<string, string> = {
   displayName: 'dn', photoURL: 'pu', uid: 'u',
   monstersKilled: 'mk', bossesKilled: 'bk',
   potionMaxBuyUpgrade: 'pmbu', potionQualityUpgrade: 'pqu',
-  rebornHistory: 'rh'
+  rebornHistory: 'rh',
+  autoHealUnlocked: 'ahu', autoHealThreshold: 'aht'
 };
 
 const ITEM_MAP: Record<string, string> = {

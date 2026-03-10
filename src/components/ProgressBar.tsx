@@ -8,7 +8,7 @@ interface ProgressBarProps {
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({ current, max, color, barMode }) => {
-    const pct = Math.min(100, Math.max(0, (current / max) * 100));
+    const pct = max > 0 ? Math.min(100, Math.max(0, (current / max) * 100)) : 0;
     if (barMode === 'number') return <div className="text-right text-xs font-mono -mt-4">{current} / {max}</div>;
     if (barMode === 'percent') return <div className="text-right text-xs font-mono -mt-4">{pct.toFixed(1)}%</div>;
     return (

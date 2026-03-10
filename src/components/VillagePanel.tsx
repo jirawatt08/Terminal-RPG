@@ -11,7 +11,7 @@ interface VillagePanelProps {
     upgradeItem: (item: Item, isEquipped: boolean) => void;
     sellItem: (item: Item) => void;
     toggleItemLock: (item: Item) => void;
-    buyPotion: (type: 'exp' | 'coin' | 'luck') => void;
+    buyPotion: (type: 'exp' | 'coin' | 'luck' | 'health') => void;
     buyPotionMaxUpgrade: () => void;
     buyPotionQualityUpgrade: () => void;
     acceptQuest: (type: 'kill_monster' | 'kill_boss') => void;
@@ -160,6 +160,43 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({
                                 </button>
                             )}
                         </div>
+
+                        <div className="border border-yellow-900/50 bg-black p-4">
+                            <h3 className="text-yellow-500 font-bold mb-2">Auto-Heal Protocol</h3>
+                            <p className="text-xs text-gray-400 mb-4">Automatically use health potions when HP drops below {player.autoHealThreshold}%.</p>
+                            {player.autoHealUnlocked ? (
+                                <div className="space-y-2">
+                                    <div className="text-green-500 text-sm font-bold text-center">UNLOCKED</div>
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase">
+                                            <span>Threshold: {player.autoHealThreshold}% HP</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="10"
+                                            max="90"
+                                            step="5"
+                                            value={player.autoHealThreshold}
+                                            onChange={(e) => setPlayer(p => ({ ...p, autoHealThreshold: parseInt(e.target.value) }))}
+                                            className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-500"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        if (player.gold >= 2500) {
+                                            setPlayer(p => ({ ...p, gold: p.gold - 2500, autoHealUnlocked: true }));
+                                            addLog('Purchased Auto-Heal Protocol!', 'success');
+                                        }
+                                    }}
+                                    disabled={player.gold < 2500}
+                                    className="w-full py-2 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-sm"
+                                >
+                                    Buy (2500G)
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {player.autoSellUnlocked && (
@@ -225,7 +262,8 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({
                         {[
                             { type: 'exp', name: 'Experience Potion', desc: 'Boosts EXP gain' },
                             { type: 'coin', name: 'Wealth Potion', desc: 'Boosts Gold gain' },
-                            { type: 'luck', name: 'Luck Potion', desc: 'Increases Luck' }
+                            { type: 'luck', name: 'Luck Potion', desc: 'Increases Luck' },
+                            { type: 'health', name: 'Health Potion', desc: 'Restores 30% HP' }
                         ].map(p => {
                             const maxPotions = 5 + (player.potionMaxBuyUpgrade * 5);
                             const currentStacks = player.potions.find(pot => pot.type === p.type)?.duration / 10 || 0;
@@ -272,12 +310,12 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({
                                 <h3 className="text-blue-500 font-bold text-sm mb-1 uppercase">POTION QUALITY</h3>
                                 <p className="text-[10px] text-gray-500 mb-2">+25% effectiveness to potions.</p>
                                 <div className="text-[10px] text-gray-400 mb-4 uppercase">
-                                    Bonus: +{player.potionQualityUpgrade * 25}% | Stage Req: {(player.potionQualityUpgrade + 1) * 10}
+                                    Bonus: +{player.potionQualityUpgrade * 25}% | Stage Req: {player.potionQualityUpgrade * 10 || 1}
                                 </div>
                             </div>
                             <button
                                 onClick={buyPotionQualityUpgrade}
-                                disabled={player.gold < (10000 * Math.pow(2.2, player.potionQualityUpgrade)) || player.potionQualityUpgrade >= 8 || player.stage < (player.potionQualityUpgrade + 1) * 10}
+                                disabled={player.gold < (10000 * Math.pow(2.2, player.potionQualityUpgrade)) || player.potionQualityUpgrade >= 8 || player.stage < (player.potionQualityUpgrade * 10)}
                                 className="w-full py-2 bg-blue-900/20 text-blue-400 border border-blue-900 hover:bg-blue-900/40 text-xs disabled:opacity-50"
                             >
                                 Upgrade ({Math.floor(10000 * Math.pow(2.2, player.potionQualityUpgrade))}G)
@@ -290,8 +328,8 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({
                             <div className="space-y-2">
                                 {player.potions.map((p, idx) => (
                                     <div key={idx} className="bg-green-900/10 border border-green-900/30 p-2 text-[10px] flex justify-between uppercase">
-                                        <span className="text-green-400">{p.type} Stacks ({Math.ceil(p.duration / 10)})</span>
-                                        <span className="text-gray-500">{p.duration} Kills total</span>
+                                        <span className="text-green-400">{p.type} ({Math.floor(p.duration)})</span>
+                                        <span className="text-gray-500">{p.type === 'health' ? 'Remaining Uses' : 'Remaining Kills'}</span>
                                     </div>
                                 ))}
                             </div>
