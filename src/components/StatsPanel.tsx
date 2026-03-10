@@ -9,10 +9,12 @@ interface StatsPanelProps {
     stats: any;
     allocateStat: (stat: keyof Player['stats']) => void;
     chooseClass: (cls: PlayerClass) => void;
+    reborn: () => void;
+    buyRebornUpgrade: (type: keyof Player['rebornUpgrades']) => void;
 }
 
-export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateStat, chooseClass }) => {
-    const [sysStatusTab, setSysStatusTab] = useState<'ATTRIBUTES' | 'EQUIPPED' | 'CHARACTER'>('ATTRIBUTES');
+export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateStat, chooseClass, reborn, buyRebornUpgrade }) => {
+    const [sysStatusTab, setSysStatusTab] = useState<'ATTRIBUTES' | 'EQUIPPED' | 'CHARACTER' | 'REBORN'>('ATTRIBUTES');
     const { barMode, reduceUi } = player.settings;
 
     return (
@@ -43,6 +45,14 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                 >
                     CHARACTER
                 </button>
+                {(player.level >= 20 || player.rebornCount > 0) && (
+                    <button
+                        onClick={() => setSysStatusTab('REBORN')}
+                        className={`flex-1 py-1 text-xs font-bold border ${sysStatusTab === 'REBORN' ? 'border-purple-500 text-purple-400 bg-purple-500/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
+                    >
+                        REBORN
+                    </button>
+                )}
             </div>
 
             <div className="space-y-2 text-sm">
@@ -88,7 +98,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                 <span>ATTRIBUTES</span>
                                 {player.statPoints > 0 && <span className="text-yellow-400 animate-pulse">{player.statPoints} PTS</span>}
                             </div>
-                            {(['str', 'agi', 'vit', 'int'] as const).map(stat => (
+                            {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => (
                                 <div key={stat} className="flex justify-between items-center text-xs mb-1">
                                     <span className="uppercase">{stat}: {player.stats[stat]}</span>
                                     {player.statPoints > 0 && (
@@ -105,7 +115,8 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                 {stats.agiMilestones > 0 && <div>AGI: +{stats.agiMilestones * 2}% Crit Rate, +{stats.agiMilestones * 2}% Dodge</div>}
                                 {stats.vitMilestones > 0 && <div>VIT: +{stats.vitMilestones * 5}% HP/DEF</div>}
                                 {stats.intMilestones > 0 && <div>INT: +{stats.intMilestones * 2} MP Regen, +{stats.intMilestones * 5}% Magic DMG</div>}
-                                {stats.strMilestones === 0 && stats.agiMilestones === 0 && stats.vitMilestones === 0 && stats.intMilestones === 0 && <div>None active.</div>}
+                                {stats.lukMilestones > 0 && <div>LUK: +{stats.lukMilestones * 1}% Drop Rarity Chance</div>}
+                                {stats.strMilestones === 0 && stats.agiMilestones === 0 && stats.vitMilestones === 0 && stats.intMilestones === 0 && stats.lukMilestones === 0 && <div>None active.</div>}
                             </div>
                         )}
 
@@ -206,10 +217,74 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                     <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(stats.finalCritDmg * 100)}%</span></div>
                                     <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{stats.dodgeChance}%</span></div>
                                     <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{stats.lifesteal}%</span></div>
+                                    <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{stats.totalLuck}</span></div>
+                                    <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{stats.totalStatusChance}/10</span></div>
                                     <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{stats.setBonusGoldPct * 100}%</span></div>
                                     <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{stats.setBonusExpPct * 100}%</span></div>
                                 </>
                             )}
+                        </div>
+                    </div>
+                )}
+                {sysStatusTab === 'REBORN' && (
+                    <div className="mt-4 pt-4 border-t border-gray-800 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-purple-400">REBORN POINTS:</span>
+                            <span className="text-yellow-400 font-bold">{player.rebornPoints}</span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <div className="text-[10px] text-gray-500 uppercase">Permanent Upgrades</div>
+                            <div className="grid grid-cols-1 gap-2">
+                                <button 
+                                    onClick={() => buyRebornUpgrade('atkBonus')}
+                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
+                                >
+                                    <span>ATK BONUS (+{player.rebornUpgrades.atkBonus}%)</span>
+                                    <span className="text-yellow-500">5 RP</span>
+                                </button>
+                                <button 
+                                    onClick={() => buyRebornUpgrade('hpBonus')}
+                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
+                                >
+                                    <span>HP BONUS (+{player.rebornUpgrades.hpBonus}%)</span>
+                                    <span className="text-yellow-500">5 RP</span>
+                                </button>
+                                <button 
+                                    onClick={() => buyRebornUpgrade('expBonus')}
+                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
+                                >
+                                    <span>EXP BONUS (+{player.rebornUpgrades.expBonus}%)</span>
+                                    <span className="text-yellow-500">10 RP</span>
+                                </button>
+                                <button 
+                                    onClick={() => buyRebornUpgrade('goldBonus')}
+                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
+                                >
+                                    <span>GOLD BONUS (+{player.rebornUpgrades.goldBonus}%)</span>
+                                    <span className="text-yellow-500">10 RP</span>
+                                </button>
+                                <button 
+                                    onClick={() => buyRebornUpgrade('statBonus')}
+                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
+                                >
+                                    <span>EXTRA STATS (+{player.rebornUpgrades.statBonus}/LV)</span>
+                                    <span className="text-yellow-500">20 RP</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-800">
+                            <div className="text-[10px] text-gray-500 mb-2">
+                                Reborn resets your Level, Stage, Gold, and Inventory, but gives you Reborn Points based on your progress.
+                            </div>
+                            <button 
+                                onClick={reborn}
+                                disabled={player.level < 20}
+                                className={`w-full py-2 text-xs font-bold border ${player.level >= 20 ? 'border-purple-500 text-purple-400 hover:bg-purple-500/20' : 'border-gray-800 text-gray-700 cursor-not-allowed'}`}
+                            >
+                                {player.level >= 20 ? 'EXECUTE REBORN.EXE' : 'LEVEL 20 REQUIRED'}
+                            </button>
                         </div>
                     </div>
                 )}

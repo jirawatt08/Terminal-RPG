@@ -16,6 +16,8 @@ interface CharacterPanelProps {
   finalCritDmg: number;
   dodgeChance: number;
   lifesteal: number;
+  totalLuck: number;
+  totalStatusChance: number;
   setBonusGoldPct: number;
   setBonusExpPct: number;
   barMode: 'bar' | 'number' | 'percent';
@@ -28,9 +30,10 @@ interface CharacterPanelProps {
   agiMilestones: number;
   vitMilestones: number;
   intMilestones: number;
+  lukMilestones: number;
   activeSets: string[];
-  inventorySort: 'STAT' | 'RARITY';
-  setInventorySort: (sort: 'STAT' | 'RARITY') => void;
+  inventorySort: 'STAT' | 'RARITY' | 'NAME';
+  setInventorySort: (sort: 'STAT' | 'RARITY' | 'NAME') => void;
   sortedInventory: Item[];
   equipItem: (item: Item) => void;
   getEquipmentValue: (item: Item | null) => number;
@@ -47,6 +50,8 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   finalCritDmg,
   dodgeChance,
   lifesteal,
+  totalLuck,
+  totalStatusChance,
   setBonusGoldPct,
   setBonusExpPct,
   barMode,
@@ -59,6 +64,7 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   agiMilestones,
   vitMilestones,
   intMilestones,
+  lukMilestones,
   activeSets,
   inventorySort,
   setInventorySort,
@@ -146,7 +152,7 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
                   <span>ATTRIBUTES</span>
                   {player.statPoints > 0 && <span className="text-yellow-400 animate-pulse">{player.statPoints} PTS</span>}
                 </div>
-                {(['str', 'agi', 'vit', 'int'] as const).map(stat => (
+                {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => (
                   <div key={stat} className="flex justify-between items-center text-xs mb-1">
                     <span className="uppercase">{stat}: {player.stats[stat]}</span>
                     {player.statPoints > 0 && (
@@ -163,7 +169,8 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
                 {agiMilestones > 0 && <div>AGI: +{agiMilestones * 2}% Crit Rate, +{agiMilestones * 2}% Dodge</div>}
                 {vitMilestones > 0 && <div>VIT: +{vitMilestones * 5}% HP/DEF</div>}
                 {intMilestones > 0 && <div>INT: +{intMilestones * 2} MP Regen, +{intMilestones * 5}% Magic DMG</div>}
-                {strMilestones === 0 && agiMilestones === 0 && vitMilestones === 0 && intMilestones === 0 && <div>None active.</div>}
+                {lukMilestones > 0 && <div>LUK: +{lukMilestones * 1}% Drop Rarity Chance</div>}
+                {strMilestones === 0 && agiMilestones === 0 && vitMilestones === 0 && intMilestones === 0 && lukMilestones === 0 && <div>None active.</div>}
               </div>
 
               {/* Class Passives */}
@@ -264,6 +271,8 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
                 <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(finalCritDmg * 100)}%</span></div>
                 <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{dodgeChance}%</span></div>
                 <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{lifesteal}%</span></div>
+                <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{totalLuck}</span></div>
+                <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{totalStatusChance}/10</span></div>
                 <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{setBonusGoldPct * 100}%</span></div>
                 <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{setBonusExpPct * 100}%</span></div>
               </div>
@@ -292,6 +301,12 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
                 className={`text-[10px] px-2 py-0.5 border ${inventorySort === 'RARITY' ? 'border-[#00ff00] text-[#00ff00]' : 'border-gray-700 text-gray-500'}`}
               >
                 RARITY
+              </button>
+              <button 
+                onClick={() => setInventorySort('NAME')}
+                className={`text-[10px] px-2 py-0.5 border ${inventorySort === 'NAME' ? 'border-[#00ff00] text-[#00ff00]' : 'border-gray-700 text-gray-500'}`}
+              >
+                NAME
               </button>
             </div>
           </div>

@@ -2,7 +2,7 @@ export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'My
 
 export type ItemType = 'Weapon' | 'Armor' | 'Accessory';
 
-export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze';
+export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze' | 'luck' | 'statusChance';
 
 export type StatusEffectType = 'poison' | 'burn' | 'stun' | 'freeze';
 
@@ -39,6 +39,7 @@ export interface PlayerStats {
   agi: number; // Crit & Dodge
   vit: number; // HP & Def
   int: number; // Skill/Magic
+  luk: number; // Luck
 }
 
 export interface PlayerSettings {
@@ -74,6 +75,15 @@ export interface Player {
   skillCooldown: number;
   statusEffects: StatusEffect[];
   settings: PlayerSettings;
+  rebornPoints: number;
+  rebornCount: number;
+  rebornUpgrades: {
+    atkBonus: number; // Permanent ATK % bonus
+    hpBonus: number;  // Permanent HP % bonus
+    expBonus: number; // Permanent EXP % bonus
+    goldBonus: number; // Permanent Gold % bonus
+    statBonus: number; // Extra stat points per level
+  };
 }
 
 export interface EnemySkill {

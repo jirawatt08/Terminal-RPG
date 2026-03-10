@@ -39,16 +39,19 @@ export const generateEnemies = (playerLevel: number, stage: number, isBoss: bool
   return Array.from({ length: count }, () => generateEnemy(playerLevel, stage, false));
 };
 
-export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean = false): Item | null => {
+export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean = false, luck: number = 0): Item | null => {
   const chance = Math.random();
-  if (chance > (isBoss ? 0.9 : 0.35)) return null;
+  // Luck increases drop chance slightly
+  const dropThreshold = isBoss ? 0.9 : (0.35 + (luck * 0.001));
+  if (chance > dropThreshold) return null;
 
   const typeRoll = Math.random();
   const type: ItemType = typeRoll > 0.66 ? 'Weapon' : typeRoll > 0.33 ? 'Armor' : 'Accessory';
   
   let rarity: Rarity = 'Common';
   const baseRoll = Math.random();
-  const rarityRoll = baseRoll + (stage * 0.005); // +0.5% chance per stage to roll higher
+  // Luck increases rarity roll: each point of luck adds 0.1% chance
+  const rarityRoll = baseRoll + (stage * 0.005) + (luck * 0.001); 
 
   if (isBoss) {
     if (rarityRoll > 0.99) rarity = 'Divine';
@@ -76,10 +79,15 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
   let setName: string | undefined;
 
   if (rarity === 'Epic' || rarity === 'Legendary' || rarity === 'Mythic' || rarity === 'Divine') {
-    const effectTypes: EffectType[] = ['lifesteal', 'crit', 'dodge', 'poison', 'burn', 'stun', 'freeze'];
+    const effectTypes: EffectType[] = ['lifesteal', 'crit', 'dodge', 'poison', 'burn', 'stun', 'freeze', 'luck', 'statusChance'];
+    const selectedType = effectTypes[Math.floor(Math.random() * effectTypes.length)];
     effect = {
-      type: effectTypes[Math.floor(Math.random() * effectTypes.length)],
-      value: Math.floor(Math.random() * 10) + (rarityMultiplier * 2)
+      type: selectedType,
+      value: selectedType === 'luck' 
+        ? Math.floor(Math.random() * 20) + (rarityMultiplier * 5)
+        : selectedType === 'statusChance'
+        ? Math.floor(Math.random() * 5) + rarityMultiplier
+        : Math.floor(Math.random() * 10) + (rarityMultiplier * 2)
     };
     
     // Unique items (Mythic/Divine) don't need a set name, they are unique

@@ -7,7 +7,7 @@ export function useGameLogic() {
     const [player, setPlayer] = useState<Player>({
         level: 1, exp: 0, maxExp: 100, hp: 100, maxHp: 100, mp: 50, maxMp: 50,
         baseAttack: 10, baseDefense: 5, gold: 0, stage: 1, statPoints: 0,
-        stats: { str: 5, agi: 5, vit: 5, int: 5 },
+        stats: { str: 5, agi: 5, vit: 5, int: 5, luk: 5 },
         playerClass: 'Novice', inventory: [],
         equipment: { weapon: null, armor: null, accessory: null },
         autoSell: { Common: false, Uncommon: false, Rare: false, Epic: false, Legendary: false, Mythic: false, Divine: false },
@@ -16,7 +16,16 @@ export function useGameLogic() {
         autoSellUnlocked: false,
         skillCooldown: 0,
         statusEffects: [],
-        settings: { barMode: 'bar', reduceUi: false }
+        settings: { barMode: 'bar', reduceUi: false },
+        rebornPoints: 0,
+        rebornCount: 0,
+        rebornUpgrades: {
+            atkBonus: 0,
+            hpBonus: 0,
+            expBonus: 0,
+            goldBonus: 0,
+            statBonus: 0
+        }
     });
 
     const [gameState, setGameState] = useState<GameState>('IDLE');
@@ -42,6 +51,7 @@ export function useGameLogic() {
     const agiMilestones = Math.floor(player.stats.agi / 10);
     const vitMilestones = Math.floor(player.stats.vit / 10);
     const intMilestones = Math.floor(player.stats.int / 10);
+    const lukMilestones = Math.floor(player.stats.luk / 10);
 
     const bonusAtkPct = strMilestones * 0.05 + (player.playerClass === 'Berserker' ? 0.3 : 0);
     const bonusCritDmg = 1.5 + (strMilestones * 0.10) + (player.playerClass === 'Rogue' ? 0.2 : player.playerClass === 'Assassin' ? 0.4 : 0);
@@ -76,7 +86,7 @@ export function useGameLogic() {
     const setBonusCrit = (hasSet('Assassin') ? 15 : 0) + (hasSet('Shadow') ? 10 : 0);
     const setBonusLifesteal = (hasSet('Vampire') ? 15 : 0);
 
-    const maxHp = Math.floor((player.maxHp + (player.stats.vit * 10)) * (1 + bonusHpPct + setBonusHpPct));
+    const maxHp = Math.floor((player.maxHp + (player.stats.vit * 10)) * (1 + bonusHpPct + setBonusHpPct + (player.rebornUpgrades.hpBonus / 100)));
     const classBonusMp = (player.playerClass === 'Mage' ? 50 : player.playerClass === 'Archmage' ? 150 : player.playerClass === 'Necromancer' ? 100 : player.playerClass === 'Paladin' ? 50 : 0);
     const maxMp = Math.floor((player.maxMp + (player.stats.int * 5) + classBonusMp) * (1 + setBonusMpPct));
 
@@ -85,11 +95,7 @@ export function useGameLogic() {
         return Math.floor(item.value * (1 + (item.upgradeLevel || 0) * 0.2));
     };
 
-    const totalAttack = Math.floor((player.baseAttack + (player.stats.str * 2) + getEquipmentValue(player.equipment.weapon)) * (1 + bonusAtkPct + setBonusAtkPct));
-    const totalDefense = Math.floor((player.baseDefense + (player.stats.vit * 1.5) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
-    const totalMagicAttack = Math.floor((player.stats.int * 2 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
-
-    const getEffectTotal = (type: 'lifesteal' | 'crit' | 'dodge') => {
+    const getEffectTotal = (type: 'lifesteal' | 'crit' | 'dodge' | 'luck' | 'statusChance') => {
         let total = 0;
         Object.values(player.equipment).forEach(item => {
             const i = item as Item | null;
@@ -97,6 +103,12 @@ export function useGameLogic() {
         });
         return total;
     };
+
+    const totalAttack = Math.floor((player.baseAttack + (player.stats.str * 2) + getEquipmentValue(player.equipment.weapon)) * (1 + bonusAtkPct + setBonusAtkPct + (player.rebornUpgrades.atkBonus / 100)));
+    const totalDefense = Math.floor((player.baseDefense + (player.stats.vit * 1.5) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
+    const totalMagicAttack = Math.floor((player.stats.int * 2 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
+    const totalLuck = player.stats.luk + getEffectTotal('luck');
+    const totalStatusChance = 2 + Math.floor(player.stats.int / 5) + getEffectTotal('statusChance');
 
     let critChance = getEffectTotal('crit') + bonusCritChance + setBonusCrit;
     let finalCritDmg = bonusCritDmg;
@@ -269,7 +281,9 @@ export function useGameLogic() {
                         Object.values(newPlayer.equipment).forEach(item => {
                             const i = item as Item | null;
                             if (i?.effect && ['poison', 'burn', 'stun', 'freeze'].includes(i.effect.type)) {
-                                if (Math.random() > 0.8) { // 20% chance to apply
+                                const roll = Math.floor(Math.random() * 10) + 1;
+                                const successThreshold = totalStatusChance;
+                                if (roll <= successThreshold) {
                                     let effectValue = i.effect.value;
                                     if (i.effect.type === 'poison') {
                                         effectValue = Math.floor(target.maxHp * 0.05); // 5% of enemy max HP
@@ -281,7 +295,7 @@ export function useGameLogic() {
                                         duration: 3,
                                         value: effectValue
                                     });
-                                    addLog(`> Applied ${i.effect.type} to ${target.name}!`, 'success');
+                                    addLog(`> [DICE ROLL: ${roll}/${successThreshold}] Applied ${i.effect.type} to ${target.name}!`, 'success');
                                 }
                             }
                         });
@@ -304,24 +318,26 @@ export function useGameLogic() {
                 for (const target of enemies) {
                     if (target.hp <= 0) {
                         addLog(`[KILL] ${target.name} terminated.`, 'success');
-                        newPlayer.exp += target.expReward;
-                        newPlayer.gold += target.goldReward;
-                        addLog(`+ ${target.expReward} EXP | + ${target.goldReward} Gold`, 'info');
+                        const expGain = Math.floor(target.expReward * (1 + (newPlayer.rebornUpgrades.expBonus / 100) + setBonusExpPct));
+                        const goldGain = Math.floor(target.goldReward * (1 + (newPlayer.rebornUpgrades.goldBonus / 100) + setBonusGoldPct));
+                        newPlayer.exp += expGain;
+                        newPlayer.gold += goldGain;
+                        addLog(`+ ${expGain} EXP | + ${goldGain} Gold`, 'info');
 
                         if (newPlayer.exp >= newPlayer.maxExp) {
                             newPlayer.level += 1;
                             newPlayer.exp -= newPlayer.maxExp;
                             newPlayer.maxExp = Math.floor(newPlayer.maxExp * 1.5);
-                            newPlayer.statPoints += 3;
+                            newPlayer.statPoints += 3 + newPlayer.rebornUpgrades.statBonus;
                             newPlayer.hp = maxHp;
-                            addLog(`[LEVEL UP] Reached Level ${newPlayer.level}! +3 Stat Points.`, 'success');
+                            addLog(`[LEVEL UP] Reached Level ${newPlayer.level}! +${3 + newPlayer.rebornUpgrades.statBonus} Stat Points.`, 'success');
                             if (newPlayer.level === 10 && newPlayer.playerClass === 'Novice') {
                                 addLog(`[CLASS UNLOCK] You reached Lv.10! Choose a class in the stats panel.`, 'system');
                             }
                         }
 
                         const targetStage = gameState === 'NEXT_BOSS_FIGHT' ? newPlayer.stage + 1 : newPlayer.stage;
-                        const loot = generateLoot(newPlayer.level, targetStage, target.isBoss);
+                        const loot = generateLoot(newPlayer.level, targetStage, target.isBoss, totalLuck);
                         if (loot) {
                             if (newPlayer.autoSellUnlocked && newPlayer.autoSell[loot.rarity]) {
                                 newPlayer.gold += loot.sellPrice;
@@ -395,14 +411,18 @@ export function useGameLogic() {
                             addLog(`< [SKILL] ${enemy.name} used ${enemy.skill.name} for ${damageToPlayer} dmg!`, 'error');
 
                             if (enemy.skill.effect) {
-                                let effectValue = enemy.skill.effect.value;
-                                if (enemy.skill.effect.type === 'poison') {
-                                    effectValue = Math.floor(maxHp * 0.05); // 5% of player max HP
-                                } else if (enemy.skill.effect.type === 'burn') {
-                                    effectValue = Math.floor(enemy.defense * 0.5); // 50% of enemy DEF
+                                const roll = Math.floor(Math.random() * 10) + 1;
+                                const baseChance = 3; // Enemies have slightly higher status chance (30%)
+                                if (roll <= baseChance) {
+                                    let effectValue = enemy.skill.effect.value;
+                                    if (enemy.skill.effect.type === 'poison') {
+                                        effectValue = Math.floor(maxHp * 0.05); // 5% of player max HP
+                                    } else if (enemy.skill.effect.type === 'burn') {
+                                        effectValue = Math.floor(enemy.defense * 0.5); // 50% of enemy DEF
+                                    }
+                                    newPlayer.statusEffects.push({ ...enemy.skill.effect, value: effectValue });
+                                    addLog(`< [DICE ROLL: ${roll}] ${enemy.name} applied ${enemy.skill.effect.type} to you!`, 'error');
                                 }
-                                newPlayer.statusEffects.push({ ...enemy.skill.effect, value: effectValue });
-                                addLog(`< ${enemy.name} applied ${enemy.skill.effect.type} to you!`, 'error');
                             }
                         } else {
                             damageToPlayer = Math.max(1, enemy.attack - totalDefense + Math.floor(Math.random() * 3));
@@ -586,6 +606,67 @@ export function useGameLogic() {
         }
     };
 
+    const reborn = () => {
+        if (player.level < 20) {
+            addLog('Reborn requires Level 20.', 'error');
+            return;
+        }
+
+        const pointsEarned = Math.floor(player.level / 10) + (player.stage);
+        
+        setPlayer(prev => ({
+            ...prev,
+            level: 1,
+            exp: 0,
+            maxExp: 100,
+            hp: 100,
+            mp: 50,
+            baseAttack: 10,
+            baseDefense: 5,
+            gold: 0,
+            stage: 1,
+            statPoints: 0,
+            stats: { str: 5, agi: 5, vit: 5, int: 5, luk: 5 },
+            playerClass: 'Novice',
+            inventory: [],
+            equipment: { weapon: null, armor: null, accessory: null },
+            rebornPoints: prev.rebornPoints + pointsEarned,
+            rebornCount: prev.rebornCount + 1,
+            statusEffects: [],
+            skillCooldown: 0
+        }));
+
+        setGameState('IDLE');
+        setCurrentEnemies([]);
+        addLog(`REBORN SUCCESSFUL. Earned ${pointsEarned} Reborn Points. All progress reset.`, 'success');
+    };
+
+    const buyRebornUpgrade = (type: keyof Player['rebornUpgrades']) => {
+        const costs: Record<keyof Player['rebornUpgrades'], number> = {
+            atkBonus: 5,
+            hpBonus: 5,
+            expBonus: 10,
+            goldBonus: 10,
+            statBonus: 20
+        };
+
+        const cost = costs[type];
+        if (player.rebornPoints < cost) {
+            addLog(`Insufficient Reborn Points. Need ${cost}.`, 'error');
+            return;
+        }
+
+        setPlayer(prev => ({
+            ...prev,
+            rebornPoints: prev.rebornPoints - cost,
+            rebornUpgrades: {
+                ...prev.rebornUpgrades,
+                [type]: prev.rebornUpgrades[type] + (type === 'statBonus' ? 1 : 5)
+            }
+        }));
+        addLog(`Upgrade purchased: ${type}.`, 'success');
+    };
+
     return {
         player,
         setPlayer,
@@ -595,16 +676,16 @@ export function useGameLogic() {
         logs,
         addLog,
         stats: {
-            strMilestones, agiMilestones, vitMilestones, intMilestones,
+            strMilestones, agiMilestones, vitMilestones, intMilestones, lukMilestones,
             activeSets, hasSet,
             setBonusGoldPct, setBonusExpPct,
-            maxHp, maxMp, totalAttack, totalDefense, totalMagicAttack,
+            maxHp, maxMp, totalAttack, totalDefense, totalMagicAttack, totalLuck, totalStatusChance,
             critChance, finalCritDmg, dodgeChance, lifesteal, getEquipmentValue
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,
             enterVillage, openSettings, runAway, showHelp, equipItem, sellItem, upgradeItem,
-            heal, allocateStat, chooseClass
+            heal, allocateStat, chooseClass, reborn, buyRebornUpgrade
         },
         refs: {
             logsEndRef, queuedSkillRef

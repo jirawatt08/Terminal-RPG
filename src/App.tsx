@@ -26,6 +26,8 @@ export default function App() {
           stats={stats}
           allocateStat={actions.allocateStat}
           chooseClass={actions.chooseClass}
+          reborn={actions.reborn}
+          buyRebornUpgrade={actions.buyRebornUpgrade}
         />
         <InventoryPanel
           player={player}
