@@ -25,6 +25,16 @@ export const generateEnemy = (playerLevel: number, stage: number, isBoss: boolea
       ? BOSS_SKILLS[Math.floor(Math.random() * BOSS_SKILLS.length)]
       : ENEMY_SKILLS[Math.floor(Math.random() * ENEMY_SKILLS.length)];
     skill = { ...skillTemplate, currentCooldown: 2 }; // Starts with 2 turns before first use
+    
+    // 20% chance for skill to have a status effect
+    if (Math.random() > 0.8) {
+      const effectTypes: import('./types').StatusEffectType[] = ['poison', 'burn', 'stun', 'freeze'];
+      skill.effect = {
+        type: effectTypes[Math.floor(Math.random() * effectTypes.length)],
+        duration: Math.floor(Math.random() * 3) + 1,
+        value: Math.floor(Math.random() * 5) + 2
+      };
+    }
   }
 
   return {
@@ -37,7 +47,8 @@ export const generateEnemy = (playerLevel: number, stage: number, isBoss: boolea
     expReward: Math.floor((10 + levelVariance * 5) * multiplier),
     goldReward: Math.floor((5 + levelVariance * 2) * multiplier),
     isBoss,
-    skill
+    skill,
+    statusEffects: []
   };
 };
 
@@ -57,24 +68,24 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
   
   let rarity: Rarity = 'Common';
   const baseRoll = Math.random();
-  const rarityRoll = baseRoll + (stage * 0.01); // +1% chance per stage to roll higher
+  const rarityRoll = baseRoll + (stage * 0.005); // +0.5% chance per stage to roll higher
 
   if (isBoss) {
-    if (rarityRoll > 0.98) rarity = 'Divine';
-    else if (rarityRoll > 0.90) rarity = 'Mythic';
-    else if (rarityRoll > 0.75) rarity = 'Legendary';
+    if (rarityRoll > 0.99) rarity = 'Divine';
+    else if (rarityRoll > 0.95) rarity = 'Mythic';
+    else if (rarityRoll > 0.85) rarity = 'Legendary';
     else rarity = 'Epic';
   } else {
-    if (rarityRoll > 0.999) rarity = 'Divine';
-    else if (rarityRoll > 0.99) rarity = 'Mythic';
-    else if (rarityRoll > 0.95) rarity = 'Legendary';
-    else if (rarityRoll > 0.85) rarity = 'Epic';
-    else if (rarityRoll > 0.60) rarity = 'Rare';
-    else if (rarityRoll > 0.30) rarity = 'Uncommon';
+    if (rarityRoll > 0.9999) rarity = 'Divine';
+    else if (rarityRoll > 0.995) rarity = 'Mythic';
+    else if (rarityRoll > 0.98) rarity = 'Legendary';
+    else if (rarityRoll > 0.92) rarity = 'Epic';
+    else if (rarityRoll > 0.75) rarity = 'Rare';
+    else if (rarityRoll > 0.40) rarity = 'Uncommon';
   }
 
   const rarityMultiplier = { Common: 1, Uncommon: 1.5, Rare: 2, Epic: 3, Legendary: 5, Mythic: 8, Divine: 15 }[rarity];
-  const value = Math.floor((playerLevel * 2 + stage * 5 + Math.random() * 5) * rarityMultiplier);
+  const value = Math.floor((playerLevel * 1.2 + stage * 2 + Math.random() * 3) * rarityMultiplier);
   
   const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
   const noun = type === 'Weapon' ? WEAPON_NAMES[Math.floor(Math.random() * WEAPON_NAMES.length)] 
@@ -85,18 +96,23 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
   let setName: string | undefined;
 
   if (rarity === 'Epic' || rarity === 'Legendary' || rarity === 'Mythic' || rarity === 'Divine') {
-    const effectTypes: EffectType[] = ['lifesteal', 'crit', 'dodge'];
+    const effectTypes: EffectType[] = ['lifesteal', 'crit', 'dodge', 'poison', 'burn', 'stun', 'freeze'];
     effect = {
       type: effectTypes[Math.floor(Math.random() * effectTypes.length)],
       value: Math.floor(Math.random() * 10) + (rarityMultiplier * 2)
     };
-    if (Math.random() > 0.5) {
+    
+    // Unique items (Mythic/Divine) don't need a set name, they are unique
+    if (rarity === 'Mythic' || rarity === 'Divine') {
+      setName = undefined;
+    } else if (Math.random() > 0.5) {
       setName = SET_NAMES[Math.floor(Math.random() * SET_NAMES.length)];
     }
   }
 
   let finalName = `${adj} ${noun}`;
   if (setName) finalName = `${setName}'s ${finalName}`;
+  else if (rarity === 'Mythic' || rarity === 'Divine') finalName = `${finalName} of the Ancients`;
 
   return {
     id: generateId(),

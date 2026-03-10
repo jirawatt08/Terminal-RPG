@@ -2,7 +2,15 @@ export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'My
 
 export type ItemType = 'Weapon' | 'Armor' | 'Accessory';
 
-export type EffectType = 'lifesteal' | 'crit' | 'dodge';
+export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze';
+
+export type StatusEffectType = 'poison' | 'burn' | 'stun' | 'freeze';
+
+export interface StatusEffect {
+  type: StatusEffectType;
+  duration: number;
+  value?: number;
+}
 
 export interface Item {
   id: string;
@@ -13,9 +21,10 @@ export interface Item {
   sellPrice: number;
   effect?: { type: EffectType; value: number };
   setName?: string;
+  upgradeLevel?: number;
 }
 
-export type PlayerClass = 'Novice' | 'Warrior' | 'Rogue' | 'Mage';
+export type PlayerClass = 'Novice' | 'Warrior' | 'Rogue' | 'Mage' | 'Paladin' | 'Berserker' | 'Assassin' | 'Ranger' | 'Archmage' | 'Necromancer';
 
 export interface PlayerStats {
   str: number; // Attack
@@ -47,6 +56,10 @@ export interface Player {
   };
   autoSell: Record<Rarity, boolean>;
   autoSkill: boolean;
+  inventoryLimit: number;
+  autoSellUnlocked: boolean;
+  skillCooldown: number;
+  statusEffects: StatusEffect[];
 }
 
 export interface EnemySkill {
@@ -54,6 +67,7 @@ export interface EnemySkill {
   mult: number;
   cooldown: number;
   currentCooldown: number;
+  effect?: { type: StatusEffectType; duration: number; value?: number };
 }
 
 export interface Enemy {
@@ -67,9 +81,10 @@ export interface Enemy {
   goldReward: number;
   isBoss: boolean;
   skill?: EnemySkill;
+  statusEffects: StatusEffect[];
 }
 
-export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'DEAD';
+export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD';
 
 export interface LogEntry {
   id: string;
