@@ -29,7 +29,7 @@ if (isFirebaseConfigured) {
     db = initializeFirestore(app, {
       ignoreUndefinedProperties: true,
     });
-    
+
     // Enable offline persistence
     if (typeof window !== 'undefined') {
       enableIndexedDbPersistence(db).catch((err) => {
@@ -45,9 +45,12 @@ if (isFirebaseConfigured) {
     if (typeof window !== 'undefined') {
       analytics = getAnalytics(app);
     }
+    console.log("[FIREBASE] Initialized successfully with project ID:", firebaseConfig.projectId);
   } catch (error) {
-    console.error("Firebase initialization failed:", error);
+    console.error("[FIREBASE] Initialization failed:", error);
   }
+} else {
+  console.warn("[FIREBASE] Config is missing! Check your .env file or VITE_ secrets.");
 }
 
 export { auth, db, googleProvider, isFirebaseConfigured, analytics };
@@ -95,77 +98,101 @@ export const logout = async () => {
 
 // Data Compression Helpers to minimize Firestore storage footprint
 const FIELD_MAP: Record<string, string> = {
-    level: 'l', exp: 'e', maxExp: 'me', hp: 'h', maxHp: 'mh', mp: 'm', maxMp: 'mm',
-    baseAttack: 'ba', baseDefense: 'bd', gold: 'g', stage: 's', statPoints: 'sp',
-    stats: 'st', playerClass: 'pc', inventory: 'inv', equipment: 'eq',
-    autoSell: 'as', autoSkill: 'ask', inventoryLimit: 'il', autoSellUnlocked: 'asu',
-    skillCooldown: 'sc', statusEffects: 'se', settings: 'set',
-    rebornPoints: 'rp', rebornCount: 'rc', rebornUpgrades: 'ru',
-    displayName: 'dn', photoURL: 'pu', uid: 'u'
+  level: 'l', exp: 'e', maxExp: 'me', hp: 'h', maxHp: 'mh', mp: 'm', maxMp: 'mm',
+  baseAttack: 'ba', baseDefense: 'bd', gold: 'g', stage: 's', statPoints: 'sp',
+  stats: 'st', playerClass: 'pc', inventory: 'inv', equipment: 'eq',
+  autoSell: 'as', autoSkill: 'ask', inventoryLimit: 'il', autoSellUnlocked: 'asu',
+  skillCooldown: 'sc', statusEffects: 'se', settings: 'set',
+  rebornPoints: 'rp', rebornCount: 'rc', rebornUpgrades: 'ru',
+  displayName: 'dn', photoURL: 'pu', uid: 'u'
 };
 
 const ITEM_MAP: Record<string, string> = {
-    id: 'id', name: 'n', type: 't', rarity: 'r', value: 'v',
-    sellPrice: 'p', effect: 'ef', setName: 'sn', upgradeLevel: 'ul'
+  id: 'id', name: 'n', type: 't', rarity: 'r', value: 'v',
+  sellPrice: 'p', effect: 'ef', setName: 'sn', upgradeLevel: 'ul'
 };
 
 const compressData = (data: any): any => {
-    if (data === undefined) return undefined;
-    if (data === null || typeof data !== 'object') return data;
-    if (Array.isArray(data)) return data.map(compressData).filter(v => v !== undefined);
+  if (data === undefined) return undefined;
+  if (data === null || typeof data !== 'object') return data;
+  if (Array.isArray(data)) return data.map(compressData).filter(v => v !== undefined);
 
-    const compressed: any = {};
-    for (const [key, value] of Object.entries(data)) {
-        if (value === undefined) continue;
-        const shortKey = FIELD_MAP[key] || ITEM_MAP[key] || key;
-        compressed[shortKey] = (key === 'inventory' || key === 'equipment' || typeof value === 'object') 
-            ? compressData(value) 
-            : value;
-    }
-    return compressed;
+  const compressed: any = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) continue;
+    const shortKey = FIELD_MAP[key] || ITEM_MAP[key] || key;
+    compressed[shortKey] = (key === 'inventory' || key === 'equipment' || typeof value === 'object')
+      ? compressData(value)
+      : value;
+  }
+  return compressed;
 };
 
 const decompressData = (data: any): any => {
-    if (!data || typeof data !== 'object') return data;
-    if (Array.isArray(data)) return data.map(decompressData);
+  if (!data || typeof data !== 'object') return data;
+  if (Array.isArray(data)) return data.map(decompressData);
 
-    const decompressed: any = {};
-    const reverseFieldMap = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [v, k]));
-    const reverseItemMap = Object.fromEntries(Object.entries(ITEM_MAP).map(([k, v]) => [v, k]));
+  const decompressed: any = {};
+  const reverseFieldMap = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [v, k]));
+  const reverseItemMap = Object.fromEntries(Object.entries(ITEM_MAP).map(([k, v]) => [v, k]));
 
-    for (const [key, value] of Object.entries(data)) {
-        // We need to be careful here because some short keys might overlap if not unique across maps
-        // But in our case they are unique enough or we can prioritize
-        const longKey = reverseFieldMap[key] || reverseItemMap[key] || key;
-        decompressed[longKey] = (longKey === 'inventory' || longKey === 'equipment' || typeof value === 'object')
-            ? decompressData(value)
-            : value;
-    }
-    return decompressed;
+  for (const [key, value] of Object.entries(data)) {
+    // We need to be careful here because some short keys might overlap if not unique across maps
+    // But in our case they are unique enough or we can prioritize
+    const longKey = reverseFieldMap[key] || reverseItemMap[key] || key;
+    decompressed[longKey] = (longKey === 'inventory' || longKey === 'equipment' || typeof value === 'object')
+      ? decompressData(value)
+      : value;
+  }
+  return decompressed;
 };
 
 // Database helpers
 export const savePlayerData = async (uid: string, data: any) => {
-  if (!isFirebaseConfigured) return;
+  if (!isFirebaseConfigured) {
+    console.warn("[FIREBASE] Cannot save: Firebase config missing.");
+    return;
+  }
   try {
     const compressed = compressData(data);
-    await setDoc(doc(db, 'players', uid), {
+    console.log(`[FIREBASE] Pushing cloud sync for ${uid}...`, {
+      items: data.inventory?.length || 0,
+      gold: data.gold,
+      level: data.level
+    });
+    const docRef = doc(db, 'players', uid);
+    await setDoc(docRef, {
       ...compressed,
       lastUpdated: serverTimestamp()
     }, { merge: true });
-  } catch (error) {
-    console.error("Error saving player data", error);
+    console.log("[FIREBASE] Cloud sync successful.");
+  } catch (error: any) {
+    if (error.code === 'permission-denied') {
+      console.error("[FIREBASE] Save failed: Security Rules are blocking access! Visit your Firebase Console and deploy rules.");
+    } else {
+      console.error("[FIREBASE] Error saving player data:", error);
+    }
+    throw error; // Rethrow to let the UI know
   }
 };
 
 export const getPlayerData = async (uid: string) => {
   if (!isFirebaseConfigured) return null;
   try {
+    console.log(`[FIREBASE] Fetching data for ${uid}...`);
     const docRef = doc(db, 'players', uid);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return decompressData(docSnap.data());
+      const data = docSnap.data();
+      const decompressed = decompressData(data);
+      console.log("[FIREBASE] Data retrieved & reconstructed:", {
+        level: decompressed.level,
+        gold: decompressed.gold,
+        inventory: decompressed.inventory?.length || 0
+      });
+      return decompressed;
     }
+    console.log("[FIREBASE] No cloud document found for this user.");
     return null;
   } catch (error: any) {
     // Handle offline error gracefully
