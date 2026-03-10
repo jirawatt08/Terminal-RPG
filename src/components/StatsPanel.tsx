@@ -13,7 +13,7 @@ interface StatsPanelProps {
 
 export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateStat, chooseClass }) => {
     const [sysStatusTab, setSysStatusTab] = useState<'ATTRIBUTES' | 'EQUIPPED' | 'CHARACTER'>('ATTRIBUTES');
-    const [barMode, setBarMode] = useState<'bar' | 'number' | 'percent'>('bar');
+    const { barMode, reduceUi } = player.settings;
 
     return (
         <div className="border border-[#00ff00]/30 bg-[#111] p-4 rounded-sm shadow-[0_0_10px_rgba(0,255,0,0.1)]">
@@ -21,12 +21,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                 <h2 className="text-xl font-bold flex items-center gap-2">
                     <Terminal size={20} /> SYS_STATUS
                 </h2>
-                <button
-                    onClick={() => setBarMode(prev => prev === 'bar' ? 'number' : prev === 'number' ? 'percent' : 'bar')}
-                    className="text-xs border border-gray-700 px-2 py-1 hover:bg-gray-800 text-gray-400"
-                >
-                    Mode: {barMode.toUpperCase()}
-                </button>
+                {reduceUi && <span className="text-[10px] text-gray-500 border border-gray-800 px-1">REDUCED UI</span>}
             </div>
 
             <div className="flex gap-2 mb-4">
@@ -103,16 +98,18 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                             ))}
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-gray-800 text-[10px] text-gray-500 space-y-1">
-                            <div className="text-gray-400 mb-1">MILESTONE BONUSES (Every 10 pts)</div>
-                            {stats.strMilestones > 0 && <div>STR: +{stats.strMilestones * 5}% ATK, +{stats.strMilestones * 10}% Crit DMG</div>}
-                            {stats.agiMilestones > 0 && <div>AGI: +{stats.agiMilestones * 2}% Crit Rate, +{stats.agiMilestones * 2}% Dodge</div>}
-                            {stats.vitMilestones > 0 && <div>VIT: +{stats.vitMilestones * 5}% HP/DEF</div>}
-                            {stats.intMilestones > 0 && <div>INT: +{stats.intMilestones * 2} MP Regen, +{stats.intMilestones * 5}% Magic DMG</div>}
-                            {stats.strMilestones === 0 && stats.agiMilestones === 0 && stats.vitMilestones === 0 && stats.intMilestones === 0 && <div>None active.</div>}
-                        </div>
+                        {!reduceUi && (
+                            <div className="mt-4 pt-4 border-t border-gray-800 text-[10px] text-gray-500 space-y-1">
+                                <div className="text-gray-400 mb-1">MILESTONE BONUSES (Every 10 pts)</div>
+                                {stats.strMilestones > 0 && <div>STR: +{stats.strMilestones * 5}% ATK, +{stats.strMilestones * 10}% Crit DMG</div>}
+                                {stats.agiMilestones > 0 && <div>AGI: +{stats.agiMilestones * 2}% Crit Rate, +{stats.agiMilestones * 2}% Dodge</div>}
+                                {stats.vitMilestones > 0 && <div>VIT: +{stats.vitMilestones * 5}% HP/DEF</div>}
+                                {stats.intMilestones > 0 && <div>INT: +{stats.intMilestones * 2} MP Regen, +{stats.intMilestones * 5}% Magic DMG</div>}
+                                {stats.strMilestones === 0 && stats.agiMilestones === 0 && stats.vitMilestones === 0 && stats.intMilestones === 0 && <div>None active.</div>}
+                            </div>
+                        )}
 
-                        {player.playerClass !== 'Novice' && (
+                        {!reduceUi && player.playerClass !== 'Novice' && (
                             <div className="mt-4 pt-4 border-t border-gray-800 text-[10px] text-purple-400/80 space-y-1">
                                 <div className="text-purple-400 mb-1">CLASS PASSIVE</div>
                                 {player.playerClass === 'Warrior' && <div>Toughness: +10% Base HP & DEF</div>}
@@ -177,7 +174,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                             <span className="text-gray-400 uppercase">{slot.substring(0, 3)}:</span>
                                             {item ? <span className={RARITY_COLORS[item.rarity]}>{item.name} {item.upgradeLevel && item.upgradeLevel > 0 ? `+${item.upgradeLevel}` : ''}</span> : <span className="text-gray-600">NONE</span>}
                                         </div>
-                                        {item && (
+                                        {item && !reduceUi && (
                                             <div className="text-[10px] text-gray-500 mt-1 text-right">
                                                 +{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}
                                                 {item.effect && ` | +${item.effect.value}% ${item.effect.type}`}
@@ -202,13 +199,17 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                             <div className="flex justify-between"><span>Max MP:</span> <span className="text-blue-400">{stats.maxMp}</span></div>
                             <div className="flex justify-between"><span>Attack:</span> <span className="text-gray-300">{stats.totalAttack}</span></div>
                             <div className="flex justify-between"><span>Defense:</span> <span className="text-gray-300">{stats.totalDefense}</span></div>
-                            <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{stats.totalMagicAttack}</span></div>
-                            <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{stats.critChance}%</span></div>
-                            <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(stats.finalCritDmg * 100)}%</span></div>
-                            <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{stats.dodgeChance}%</span></div>
-                            <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{stats.lifesteal}%</span></div>
-                            <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{stats.setBonusGoldPct * 100}%</span></div>
-                            <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{stats.setBonusExpPct * 100}%</span></div>
+                            {!reduceUi && (
+                                <>
+                                    <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{stats.totalMagicAttack}</span></div>
+                                    <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{stats.critChance}%</span></div>
+                                    <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(stats.finalCritDmg * 100)}%</span></div>
+                                    <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{stats.dodgeChance}%</span></div>
+                                    <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{stats.lifesteal}%</span></div>
+                                    <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{stats.setBonusGoldPct * 100}%</span></div>
+                                    <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{stats.setBonusExpPct * 100}%</span></div>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}

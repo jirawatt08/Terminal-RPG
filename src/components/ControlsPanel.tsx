@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Play, Skull, Square, ChevronRight, Home, Info } from 'lucide-react';
+import { Zap, Play, Skull, Square, ChevronRight, Home, Info, Settings } from 'lucide-react';
 import { Player, GameState } from '../types';
 import { CLASS_SKILLS } from '../constants';
 
@@ -83,6 +83,15 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                         <Home size={16} />
                     </button>
 
+                    <button
+                        onClick={actions.openSettings}
+                        disabled={gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'FARMING'}
+                        className="w-full flex items-center justify-between p-3 border border-gray-400/50 text-gray-400 hover:bg-gray-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+                    >
+                        <span>./settings</span>
+                        <Settings size={16} />
+                    </button>
+
                     <div className="pt-4 border-t border-gray-800">
                         <button
                             onClick={actions.showHelp}
@@ -94,11 +103,11 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
 
                         <button
                             onClick={actions.heal}
-                            disabled={player.gold < 50 || (player.hp >= stats.maxHp && player.mp >= stats.maxMp) || gameState === 'DEAD'}
+                            disabled={player.gold < Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05)) || (player.hp >= stats.maxHp && player.mp >= stats.maxMp) || gameState === 'DEAD'}
                             className="w-full flex items-center justify-between p-3 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                         >
                             <span>./heal</span>
-                            <span className="text-xs">-50G</span>
+                            <span className="text-xs">-{Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05))}G</span>
                         </button>
                     </div>
 

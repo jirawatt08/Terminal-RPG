@@ -4,6 +4,7 @@ import { StatsPanel } from './components/StatsPanel';
 import { InventoryPanel } from './components/InventoryPanel';
 import { ConsolePanel } from './components/ConsolePanel';
 import { VillagePanel } from './components/VillagePanel';
+import { SettingsPanel } from './components/SettingsPanel';
 import { ControlsPanel } from './components/ControlsPanel';
 
 export default function App() {
@@ -44,12 +45,19 @@ export default function App() {
             upgradeItem={actions.upgradeItem}
             sellItem={actions.sellItem}
           />
+        ) : gameState === 'SETTINGS' ? (
+          <SettingsPanel
+            player={player}
+            setPlayer={setPlayer}
+            closeSettings={actions.stopAction}
+          />
         ) : (
           <ConsolePanel
             logs={logs}
             gameState={gameState}
             currentEnemies={currentEnemies}
             logsEndRef={refs.logsEndRef}
+            player={player}
           />
         )}
       </div>

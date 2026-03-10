@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronRight, Skull } from 'lucide-react';
-import { GameState, LogEntry, Enemy } from '../types';
+import { GameState, LogEntry, Enemy, Player } from '../types';
 import { TerminalTab } from '../constants';
 
 interface ConsolePanelProps {
@@ -8,9 +8,10 @@ interface ConsolePanelProps {
     gameState: GameState;
     currentEnemies: Enemy[];
     logsEndRef: React.RefObject<HTMLDivElement>;
+    player: Player;
 }
 
-export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, currentEnemies, logsEndRef }) => {
+export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, currentEnemies, logsEndRef, player }) => {
     const [activeTab, setActiveTab] = useState<TerminalTab>('ALL');
 
     const filteredLogs = logs.filter(log => {
@@ -80,15 +81,22 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, cur
                                 <span className="truncate pr-2">{idx === 0 ? 'TARGET: ' : ''}{enemy.name}</span>
                                 {enemy.isBoss && <Skull size={14} className="shrink-0" />}
                             </div>
-                            <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden mb-1">
-                                <div
-                                    className="bg-red-500 h-full transition-all duration-300"
-                                    style={{ width: `${Math.max(0, (enemy.hp / enemy.maxHp) * 100)}%` }}
-                                />
-                            </div>
+                            
+                            {player.settings.barMode === 'bar' && (
+                                <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden mb-1">
+                                    <div
+                                        className="bg-red-500 h-full transition-all duration-300"
+                                        style={{ width: `${Math.max(0, (enemy.hp / enemy.maxHp) * 100)}%` }}
+                                    />
+                                </div>
+                            )}
+                            
                             <div className="flex justify-between items-center">
                                 <div className="text-[10px] text-gray-500">
-                                    {Math.max(0, enemy.hp)} / {enemy.maxHp} HP
+                                    {player.settings.barMode === 'percent' 
+                                        ? `${Math.max(0, (enemy.hp / enemy.maxHp) * 100).toFixed(1)}% HP`
+                                        : `${Math.max(0, enemy.hp)} / ${enemy.maxHp} HP`
+                                    }
                                 </div>
                                 {enemy.skill && (
                                     <div className="text-[9px] text-orange-400">

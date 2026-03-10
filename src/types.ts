@@ -6,6 +6,14 @@ export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 's
 
 export type StatusEffectType = 'poison' | 'burn' | 'stun' | 'freeze';
 
+export type EnemyPassiveType = 'reflect' | 'regen' | 'thorns' | 'dodge' | 'lifesteal' | 'berserk' | 'shield';
+
+export interface EnemyPassive {
+  type: EnemyPassiveType;
+  value: number;
+  description: string;
+}
+
 export interface StatusEffect {
   type: StatusEffectType;
   duration: number;
@@ -31,6 +39,11 @@ export interface PlayerStats {
   agi: number; // Crit & Dodge
   vit: number; // HP & Def
   int: number; // Skill/Magic
+}
+
+export interface PlayerSettings {
+  barMode: 'bar' | 'number' | 'percent';
+  reduceUi: boolean;
 }
 
 export interface Player {
@@ -60,6 +73,7 @@ export interface Player {
   autoSellUnlocked: boolean;
   skillCooldown: number;
   statusEffects: StatusEffect[];
+  settings: PlayerSettings;
 }
 
 export interface EnemySkill {
@@ -81,10 +95,11 @@ export interface Enemy {
   goldReward: number;
   isBoss: boolean;
   skill?: EnemySkill;
+  passive?: EnemyPassive;
   statusEffects: StatusEffect[];
 }
 
-export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD';
+export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD' | 'SETTINGS';
 
 export interface LogEntry {
   id: string;

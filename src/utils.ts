@@ -1,53 +1,33 @@
 import { Enemy, Item, ItemType, Rarity, EffectType } from './types';
-import { MONSTER_NAMES, BOSS_NAMES, WEAPON_NAMES, ARMOR_NAMES, ACCESSORY_NAMES, ADJECTIVES, SET_NAMES } from './constants';
+import { WEAPON_NAMES, ARMOR_NAMES, ACCESSORY_NAMES, ADJECTIVES, SET_NAMES } from './constants';
+import { MONSTER_TEMPLATES } from './data/monsters';
+import { BOSS_TEMPLATES } from './data/bosses';
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
-const ENEMY_SKILLS = [
-  { name: 'Slam', mult: 1.5, cooldown: 3 },
-  { name: 'Bite', mult: 1.2, cooldown: 2 },
-  { name: 'Venom Strike', mult: 1.8, cooldown: 4 },
-];
-const BOSS_SKILLS = [
-  { name: 'Inferno', mult: 2.5, cooldown: 4 },
-  { name: 'Annihilate', mult: 3.0, cooldown: 5 },
-  { name: 'Earthquake', mult: 2.0, cooldown: 3 },
-];
-
 export const generateEnemy = (playerLevel: number, stage: number, isBoss: boolean = false): Enemy => {
-  const multiplier = (isBoss ? 5 : 1) * (1 + stage * 0.2);
+  const stageMultiplier = 1 + stage * 0.2;
   const levelVariance = Math.max(1, playerLevel + Math.floor(Math.random() * 3) - 1);
   
-  const hasSkill = isBoss || Math.random() > 0.6;
-  let skill;
-  if (hasSkill) {
-    const skillTemplate = isBoss 
-      ? BOSS_SKILLS[Math.floor(Math.random() * BOSS_SKILLS.length)]
-      : ENEMY_SKILLS[Math.floor(Math.random() * ENEMY_SKILLS.length)];
-    skill = { ...skillTemplate, currentCooldown: 2 }; // Starts with 2 turns before first use
-    
-    // 20% chance for skill to have a status effect
-    if (Math.random() > 0.8) {
-      const effectTypes: import('./types').StatusEffectType[] = ['poison', 'burn', 'stun', 'freeze'];
-      skill.effect = {
-        type: effectTypes[Math.floor(Math.random() * effectTypes.length)],
-        duration: Math.floor(Math.random() * 3) + 1,
-        value: Math.floor(Math.random() * 5) + 2
-      };
-    }
-  }
+  const template = isBoss 
+    ? BOSS_TEMPLATES[Math.floor(Math.random() * BOSS_TEMPLATES.length)]
+    : MONSTER_TEMPLATES[Math.floor(Math.random() * MONSTER_TEMPLATES.length)];
+
+  const skill = template.skill ? { ...template.skill, currentCooldown: 2 } : undefined;
+  const passive = template.passive ? { ...template.passive } : undefined;
 
   return {
     id: generateId(),
-    name: isBoss ? BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)] : `${MONSTER_NAMES[Math.floor(Math.random() * MONSTER_NAMES.length)]} Lv.${levelVariance}`,
-    hp: Math.floor((20 + levelVariance * 10) * multiplier),
-    maxHp: Math.floor((20 + levelVariance * 10) * multiplier),
-    attack: Math.floor((5 + levelVariance * 2) * multiplier),
-    defense: Math.floor((2 + levelVariance) * multiplier),
-    expReward: Math.floor((10 + levelVariance * 5) * multiplier),
-    goldReward: Math.floor((5 + levelVariance * 2) * multiplier),
+    name: isBoss ? `BOSS: ${template.name}` : `${template.name} Lv.${levelVariance}`,
+    hp: Math.floor((20 + levelVariance * 10) * template.hpMult * stageMultiplier),
+    maxHp: Math.floor((20 + levelVariance * 10) * template.hpMult * stageMultiplier),
+    attack: Math.floor((5 + levelVariance * 2) * template.atkMult * stageMultiplier),
+    defense: Math.floor((2 + levelVariance) * template.defMult * stageMultiplier),
+    expReward: Math.floor((10 + levelVariance * 5) * (isBoss ? 5 : 1) * stageMultiplier),
+    goldReward: Math.floor((5 + levelVariance * 2) * (isBoss ? 5 : 1) * stageMultiplier),
     isBoss,
     skill,
+    passive,
     statusEffects: []
   };
 };

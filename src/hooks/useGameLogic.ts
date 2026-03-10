@@ -16,6 +16,7 @@ export function useGameLogic() {
         autoSellUnlocked: false,
         skillCooldown: 0,
         statusEffects: [],
+        settings: { barMode: 'bar', reduceUi: false }
     });
 
     const [gameState, setGameState] = useState<GameState>('IDLE');
@@ -134,7 +135,7 @@ export function useGameLogic() {
                     newPlayer.mp = Math.min(maxMp, newPlayer.mp + 1 + bonusManaRegen);
                 }
 
-                if (gameState === 'VILLAGE') return newPlayer;
+                if (gameState === 'VILLAGE' || gameState === 'SETTINGS') return newPlayer;
 
                 let enemies = [...currentEnemies];
 
@@ -147,9 +148,21 @@ export function useGameLogic() {
                         addLog(`[ENCOUNTER] Found a group of ${enemies.length} monsters!`, 'warning');
                     } else {
                         addLog(`[ENCOUNTER] Found ${enemies[0].name} (HP: ${enemies[0].hp})`, 'warning');
+                        if (enemies[0].passive) {
+                            addLog(`[PASSIVE] ${enemies[0].name} has [${enemies[0].passive.type.toUpperCase()}]: ${enemies[0].passive.description}`, 'info');
+                        }
                     }
                     return newPlayer;
                 }
+
+                // Enemy start-of-turn passives (Regen)
+                enemies.forEach(enemy => {
+                    if (enemy.passive?.type === 'regen' && enemy.hp < enemy.maxHp) {
+                        const regenAmount = Math.floor(enemy.maxHp * (enemy.passive.value / 100));
+                        enemy.hp = Math.min(enemy.maxHp, enemy.hp + regenAmount);
+                        addLog(`[PASSIVE] ${enemy.name} regenerated ${regenAmount} HP.`, 'info');
+                    }
+                });
 
                 // Process player status effects
                 let isPlayerStunned = false;
@@ -216,7 +229,18 @@ export function useGameLogic() {
                     let totalLifestealHeal = 0;
 
                     targets.forEach(target => {
+                        // Enemy Dodge Passive
+                        if (target.passive?.type === 'dodge' && Math.random() * 100 < target.passive.value) {
+                            addLog(`> MISSED! ${target.name} dodged the attack.`, 'info');
+                            return;
+                        }
+
                         let finalDamage = Math.max(1, damageToEnemy - (usedSkill && skill?.type === 'magic' ? Math.floor(target.defense * 0.5) : target.defense));
+
+                        // Enemy Shield Passive
+                        if (target.passive?.type === 'shield') {
+                            finalDamage = Math.floor(finalDamage * (1 - target.passive.value / 100));
+                        }
 
                         if (isCrit) {
                             if (usedSkill) {
@@ -233,6 +257,13 @@ export function useGameLogic() {
                         }
 
                         target.hp -= finalDamage;
+
+                        // Enemy Thorns/Reflect Passive
+                        if (target.passive?.type === 'thorns' || target.passive?.type === 'reflect') {
+                            const reflectedDmg = Math.floor(finalDamage * (target.passive.value / 100));
+                            newPlayer.hp -= reflectedDmg;
+                            addLog(`[PASSIVE] ${target.name} reflected ${reflectedDmg} damage back to you!`, 'error');
+                        }
 
                         // Apply item status effects
                         Object.values(newPlayer.equipment).forEach(item => {
@@ -353,6 +384,13 @@ export function useGameLogic() {
                         let damageToPlayer = 0;
                         if (enemy.skill && enemy.skill.currentCooldown <= 0) {
                             damageToPlayer = Math.max(1, Math.floor(enemy.attack * enemy.skill.mult) - totalDefense + Math.floor(Math.random() * 3));
+                            
+                            // Enemy Berserk Passive
+                            if (enemy.passive?.type === 'berserk' && enemy.hp < enemy.maxHp * 0.3) {
+                                damageToPlayer = Math.floor(damageToPlayer * (1 + enemy.passive.value / 100));
+                                addLog(`[PASSIVE] ${enemy.name} is BERSERK! Damage increased.`, 'warning');
+                            }
+
                             enemy.skill.currentCooldown = enemy.skill.cooldown;
                             addLog(`< [SKILL] ${enemy.name} used ${enemy.skill.name} for ${damageToPlayer} dmg!`, 'error');
 
@@ -368,10 +406,24 @@ export function useGameLogic() {
                             }
                         } else {
                             damageToPlayer = Math.max(1, enemy.attack - totalDefense + Math.floor(Math.random() * 3));
+                            
+                            // Enemy Berserk Passive
+                            if (enemy.passive?.type === 'berserk' && enemy.hp < enemy.maxHp * 0.3) {
+                                damageToPlayer = Math.floor(damageToPlayer * (1 + enemy.passive.value / 100));
+                                addLog(`[PASSIVE] ${enemy.name} is BERSERK! Damage increased.`, 'warning');
+                            }
+
                             if (enemy.skill) enemy.skill.currentCooldown -= 1;
                             addLog(`< ${enemy.name} attacked you for ${damageToPlayer} dmg.`, 'error');
                         }
                         newPlayer.hp -= damageToPlayer;
+
+                        // Enemy Lifesteal Passive
+                        if (enemy.passive?.type === 'lifesteal') {
+                            const healAmount = Math.floor(damageToPlayer * (enemy.passive.value / 100));
+                            enemy.hp = Math.min(enemy.maxHp, enemy.hp + healAmount);
+                            addLog(`[PASSIVE] ${enemy.name} drained ${healAmount} HP from you.`, 'warning');
+                        }
                     }
 
                     if (newPlayer.hp <= 0) {
@@ -414,8 +466,9 @@ export function useGameLogic() {
     };
     const stopAction = () => { if (gameState !== 'DEAD') { setGameState('IDLE'); setCurrentEnemies([]); addLog('Routine halted. Standing by.', 'system'); } };
     const enterVillage = () => { if (gameState !== 'DEAD' && gameState !== 'BOSS_FIGHT' && gameState !== 'NEXT_BOSS_FIGHT') { setGameState('VILLAGE'); setCurrentEnemies([]); addLog('Entering Village...', 'system'); } };
+    const openSettings = () => { if (gameState !== 'DEAD' && gameState !== 'BOSS_FIGHT' && gameState !== 'NEXT_BOSS_FIGHT' && gameState !== 'FARMING') { setGameState('SETTINGS'); setCurrentEnemies([]); addLog('Opening Settings...', 'system'); } };
     const runAway = () => {
-        if (gameState === 'FARMING' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT') {
+        if (gameState === 'FARMING' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'SETTINGS') {
             setGameState('IDLE');
             setCurrentEnemies([]);
             addLog('Escaped from combat. Returning to IDLE.', 'system');
@@ -505,10 +558,11 @@ export function useGameLogic() {
     };
 
     const heal = () => {
-        if (player.gold >= 50 && (player.hp < maxHp || player.mp < maxMp)) {
-            setPlayer(prev => ({ ...prev, gold: prev.gold - 50, hp: maxHp, mp: maxMp }));
-            addLog('Executed healing protocol. HP and MP restored. -50 Gold.', 'success');
-        } else if (player.gold < 50) addLog('Insufficient funds for healing protocol.', 'error');
+        const healCost = Math.floor(50 + (player.stage * 10) + (maxHp * 0.05) + (maxMp * 0.05));
+        if (player.gold >= healCost && (player.hp < maxHp || player.mp < maxMp)) {
+            setPlayer(prev => ({ ...prev, gold: prev.gold - healCost, hp: maxHp, mp: maxMp }));
+            addLog(`Executed healing protocol. HP and MP restored. -${healCost} Gold.`, 'success');
+        } else if (player.gold < healCost) addLog(`Insufficient funds for healing protocol. Need ${healCost}G.`, 'error');
         else addLog('HP and MP already at maximum capacity.', 'info');
     };
 
@@ -549,7 +603,7 @@ export function useGameLogic() {
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,
-            enterVillage, runAway, showHelp, equipItem, sellItem, upgradeItem,
+            enterVillage, openSettings, runAway, showHelp, equipItem, sellItem, upgradeItem,
             heal, allocateStat, chooseClass
         },
         refs: {

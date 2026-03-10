@@ -12,10 +12,12 @@ interface InventoryPanelProps {
 const RARITY_WEIGHT: Record<Rarity, number> = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythic: 6, Divine: 7 };
 
 export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipItem, getEquipmentValue }) => {
-    const [inventorySort, setInventorySort] = useState<'STAT' | 'RARITY'>('STAT');
+    const [inventorySort, setInventorySort] = useState<'STAT' | 'RARITY' | 'NAME'>('STAT');
 
     const sortedInventory = [...player.inventory].sort((a, b) => {
-        if (inventorySort === 'STAT') {
+        if (inventorySort === 'NAME') {
+            return a.name.localeCompare(b.name);
+        } else if (inventorySort === 'STAT') {
             const valA = getEquipmentValue(a);
             const valB = getEquipmentValue(b);
             if (valA !== valB) return valB - valA;
@@ -47,6 +49,12 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipIte
                             className={`text-[10px] px-2 py-0.5 border ${inventorySort === 'RARITY' ? 'border-[#00ff00] text-[#00ff00]' : 'border-gray-700 text-gray-500'}`}
                         >
                             RARITY
+                        </button>
+                        <button
+                            onClick={() => setInventorySort('NAME')}
+                            className={`text-[10px] px-2 py-0.5 border ${inventorySort === 'NAME' ? 'border-[#00ff00] text-[#00ff00]' : 'border-gray-700 text-gray-500'}`}
+                        >
+                            NAME
                         </button>
                     </div>
                 </div>
