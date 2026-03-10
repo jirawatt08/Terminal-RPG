@@ -1,6 +1,7 @@
 import React from 'react';
-import { Settings, X } from 'lucide-react';
+import { Settings, X, Cloud, Save } from 'lucide-react';
 import { Player } from '../types';
+import { savePlayerData, isFirebaseConfigured } from '../services/firebase';
 
 interface SettingsPanelProps {
     player: Player;
@@ -87,6 +88,30 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ player, setPlayer,
                         </button>
                     </div>
                 </div>
+
+                {player.uid && isFirebaseConfigured && (
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-bold border-b border-gray-800 pb-2 text-gray-300">CLOUD SAVE</h3>
+                        
+                        <div className="flex items-center justify-between p-3 border border-purple-500/30 bg-purple-500/5 rounded-sm">
+                            <div>
+                                <div className="font-bold text-purple-400 flex items-center gap-2">
+                                    <Cloud size={16} /> Manual Sync
+                                </div>
+                                <div className="text-xs text-gray-500">Force save your current progress to the cloud.</div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    savePlayerData(player.uid!, player);
+                                    alert('DATA_SYNCED_SUCCESSFULLY');
+                                }}
+                                className="px-4 py-1 border border-purple-500 text-purple-400 hover:bg-purple-500/20 text-xs font-bold transition-colors flex items-center gap-1"
+                            >
+                                <Save size={14} /> SAVE
+                            </button>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </div>

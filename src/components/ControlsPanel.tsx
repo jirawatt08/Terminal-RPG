@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Play, Skull, Square, ChevronRight, Home, Info, Settings } from 'lucide-react';
+import { Zap, Play, Skull, Square, ChevronRight, Home, Info, Settings, Trophy, LogIn, LogOut, User } from 'lucide-react';
 import { Player, GameState } from '../types';
 import { CLASS_SKILLS } from '../constants';
 
@@ -16,9 +16,25 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
     return (
         <div className="w-full md:w-1/4 flex flex-col gap-4 md:h-full">
             <div className="border border-[#00ff00]/30 bg-[#111] p-4 rounded-sm">
-                <h2 className="text-xl font-bold mb-4 border-b border-[#00ff00]/30 pb-2 flex items-center gap-2">
-                    <Zap size={20} /> COMMANDS
-                </h2>
+                <div className="mb-4 border-b border-[#00ff00]/30 pb-2 flex items-center justify-between">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Zap size={20} /> COMMANDS
+                    </h2>
+                    {player.uid ? (
+                        <div className="flex items-center gap-2">
+                            {player.photoURL ? (
+                                <img src={player.photoURL} alt="" className="w-6 h-6 rounded-full border border-[#00ff00]/30" referrerPolicy="no-referrer" />
+                            ) : (
+                                <User size={16} className="text-gray-500" />
+                            )}
+                            <button onClick={actions.logout} className="text-gray-500 hover:text-red-400"><LogOut size={16} /></button>
+                        </div>
+                    ) : (
+                        <button onClick={actions.login} className="text-gray-500 hover:text-[#00ff00] flex items-center gap-1 text-[10px]">
+                            <LogIn size={14} /> LOGIN
+                        </button>
+                    )}
+                </div>
 
                 <div className="space-y-3">
                     <button
@@ -90,6 +106,15 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                     >
                         <span>./settings</span>
                         <Settings size={16} />
+                    </button>
+
+                    <button
+                        onClick={actions.openDashboard}
+                        disabled={gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'FARMING'}
+                        className="w-full flex items-center justify-between p-3 border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+                    >
+                        <span>./dashboard</span>
+                        <Trophy size={16} />
                     </button>
 
                     <div className="pt-4 border-t border-gray-800">

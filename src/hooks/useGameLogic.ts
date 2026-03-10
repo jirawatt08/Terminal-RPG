@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, signInWithGoogle, logout as firebaseLogout, savePlayerData, getPlayerData, saveRebornRecord, isFirebaseConfigured } from '../services/firebase';
 import { Player, Enemy, GameState, LogEntry, Item, PlayerClass } from '../types';
 import { CLASS_SKILLS } from '../constants';
 import { generateEnemies, generateLoot, generateId } from '../utils';
@@ -40,6 +42,70 @@ export function useGameLogic() {
     }, []);
 
     useEffect(() => logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), [logs]);
+
+    useEffect(() => {
+        if (!isFirebaseConfigured) {
+            addLog('Cloud features disabled: Firebase not configured.', 'info');
+            return;
+        }
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const cloudData = await getPlayerData(user.uid);
+                if (cloudData) {
+                    setPlayer(prev => ({
+                        ...prev,
+                        ...cloudData,
+                        uid: user.uid,
+                        displayName: user.displayName || 'Player',
+                        photoURL: user.photoURL || ''
+                    }));
+                    addLog(`Welcome back, ${user.displayName}! Data synchronized.`, 'success');
+                } else {
+                    setPlayer(prev => ({
+                        ...prev,
+                        uid: user.uid,
+                        displayName: user.displayName || 'Player',
+                        photoURL: user.photoURL || ''
+                    }));
+                    addLog(`Logged in as ${user.displayName}.`, 'success');
+                }
+            } else {
+                setPlayer(prev => ({
+                    ...prev,
+                    uid: undefined,
+                    displayName: undefined,
+                    photoURL: undefined
+                }));
+                addLog('Logged out.', 'info');
+            }
+        });
+        return () => unsubscribe();
+    }, [addLog]);
+
+    // Auto-save every 60 seconds if logged in
+    useEffect(() => {
+        if (!player.uid) return;
+        const interval = setInterval(() => {
+            savePlayerData(player.uid!, player);
+        }, 60000);
+        return () => clearInterval(interval);
+    }, [player]);
+
+    const login = async () => {
+        try {
+            await signInWithGoogle();
+        } catch (error) {
+            addLog('Login failed.', 'error');
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await firebaseLogout();
+        } catch (error) {
+            addLog('Logout failed.', 'error');
+        }
+    };
 
     useEffect(() => {
         addLog('SYSTEM INITIALIZED. WELCOME TO TERMINAL RPG v2.0.0', 'system');
@@ -487,6 +553,7 @@ export function useGameLogic() {
     const stopAction = () => { if (gameState !== 'DEAD') { setGameState('IDLE'); setCurrentEnemies([]); addLog('Routine halted. Standing by.', 'system'); } };
     const enterVillage = () => { if (gameState !== 'DEAD' && gameState !== 'BOSS_FIGHT' && gameState !== 'NEXT_BOSS_FIGHT') { setGameState('VILLAGE'); setCurrentEnemies([]); addLog('Entering Village...', 'system'); } };
     const openSettings = () => { if (gameState !== 'DEAD' && gameState !== 'BOSS_FIGHT' && gameState !== 'NEXT_BOSS_FIGHT' && gameState !== 'FARMING') { setGameState('SETTINGS'); setCurrentEnemies([]); addLog('Opening Settings...', 'system'); } };
+    const openDashboard = () => { setGameState('DASHBOARD'); setCurrentEnemies([]); addLog('Opening Global Dashboard...', 'system'); };
     const runAway = () => {
         if (gameState === 'FARMING' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'SETTINGS') {
             setGameState('IDLE');
@@ -614,6 +681,39 @@ export function useGameLogic() {
 
         const pointsEarned = Math.floor(player.level / 10) + (player.stage);
         
+        if (player.uid) {
+            saveRebornRecord({
+                uid: player.uid,
+                displayName: player.displayName,
+                photoURL: player.photoURL,
+                level: player.level,
+                stage: player.stage,
+                gold: player.gold,
+                rebornCount: player.rebornCount + 1
+            });
+            savePlayerData(player.uid, {
+                ...player,
+                level: 1,
+                exp: 0,
+                maxExp: 100,
+                hp: 100,
+                mp: 50,
+                baseAttack: 10,
+                baseDefense: 5,
+                gold: 0,
+                stage: 1,
+                statPoints: 0,
+                stats: { str: 5, agi: 5, vit: 5, int: 5, luk: 5 },
+                playerClass: 'Novice',
+                inventory: [],
+                equipment: { weapon: null, armor: null, accessory: null },
+                rebornPoints: player.rebornPoints + pointsEarned,
+                rebornCount: player.rebornCount + 1,
+                statusEffects: [],
+                skillCooldown: 0
+            });
+        }
+
         setPlayer(prev => ({
             ...prev,
             level: 1,
@@ -684,8 +784,8 @@ export function useGameLogic() {
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,
-            enterVillage, openSettings, runAway, showHelp, equipItem, sellItem, upgradeItem,
-            heal, allocateStat, chooseClass, reborn, buyRebornUpgrade
+            enterVillage, openSettings, openDashboard, runAway, showHelp, equipItem, sellItem, upgradeItem,
+            heal, allocateStat, chooseClass, reborn, buyRebornUpgrade, login, logout
         },
         refs: {
             logsEndRef, queuedSkillRef

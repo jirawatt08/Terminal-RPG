@@ -48,6 +48,9 @@ export interface PlayerSettings {
 }
 
 export interface Player {
+  uid?: string;
+  displayName?: string;
+  photoURL?: string;
   level: number;
   exp: number;
   maxExp: number;
@@ -109,11 +112,23 @@ export interface Enemy {
   statusEffects: StatusEffect[];
 }
 
-export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD' | 'SETTINGS';
+export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD' | 'SETTINGS' | 'DASHBOARD';
 
 export interface LogEntry {
   id: string;
   timestamp: Date;
   text: string;
   type: 'info' | 'combat' | 'loot' | 'error' | 'success' | 'system' | 'warning';
+}
+
+export interface RebornRecord {
+  id: string;
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  level: number;
+  stage: number;
+  gold: number;
+  rebornCount: number;
+  timestamp: any; // Firestore Timestamp
 }

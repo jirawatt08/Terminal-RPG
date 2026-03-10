@@ -6,6 +6,7 @@ import { ConsolePanel } from './components/ConsolePanel';
 import { VillagePanel } from './components/VillagePanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ControlsPanel } from './components/ControlsPanel';
+import { DashboardPanel } from './components/DashboardPanel';
 
 export default function App() {
   const game = useGameLogic();
@@ -52,6 +53,10 @@ export default function App() {
             player={player}
             setPlayer={setPlayer}
             closeSettings={actions.stopAction}
+          />
+        ) : gameState === 'DASHBOARD' ? (
+          <DashboardPanel
+            onClose={actions.stopAction}
           />
         ) : (
           <ConsolePanel
