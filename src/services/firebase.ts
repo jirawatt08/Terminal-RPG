@@ -104,7 +104,9 @@ const FIELD_MAP: Record<string, string> = {
   autoSell: 'as', autoSkill: 'ask', inventoryLimit: 'il', autoSellUnlocked: 'asu',
   skillCooldown: 'sc', statusEffects: 'se', settings: 'set',
   rebornPoints: 'rp', rebornCount: 'rc', rebornUpgrades: 'ru',
-  displayName: 'dn', photoURL: 'pu', uid: 'u'
+  displayName: 'dn', photoURL: 'pu', uid: 'u',
+  monstersKilled: 'mk', bossesKilled: 'bk',
+  potionMaxBuyUpgrade: 'pmbu', potionQualityUpgrade: 'pqu'
 };
 
 const ITEM_MAP: Record<string, string> = {

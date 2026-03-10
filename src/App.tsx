@@ -60,6 +60,8 @@ export default function App() {
             sellItem={actions.sellItem}
             toggleItemLock={actions.toggleItemLock}
             buyPotion={actions.buyPotion}
+            buyPotionMaxUpgrade={actions.buyPotionMaxUpgrade}
+            buyPotionQualityUpgrade={actions.buyPotionQualityUpgrade}
             acceptQuest={actions.acceptQuest}
             completeQuest={actions.completeQuest}
           />

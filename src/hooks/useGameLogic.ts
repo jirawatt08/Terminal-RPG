@@ -30,6 +30,8 @@ export function useGameLogic() {
             statBonus: 0
         },
         potions: [],
+        potionMaxBuyUpgrade: 0,
+        potionQualityUpgrade: 0,
         quests: [],
         monstersKilled: 0,
         bossesKilled: 0
@@ -791,7 +793,9 @@ export function useGameLogic() {
                 level: player.level,
                 stage: player.stage,
                 gold: player.gold,
-                rebornCount: player.rebornCount + 1
+                rebornCount: player.rebornCount + 1,
+                monstersKilled: player.monstersKilled,
+                bossesKilled: player.bossesKilled
             });
             savePlayerData(player.uid, {
                 ...player,
@@ -836,11 +840,15 @@ export function useGameLogic() {
             equipment: { weapon: null, armor: null, accessory: null },
             rebornPoints: prev.rebornPoints + pointsEarned,
             rebornCount: prev.rebornCount + 1,
-            statusEffects: [],
+            inventoryLimit: 20,
+            autoSellUnlocked: false,
+            autoSell: { Common: false, Uncommon: false, Rare: false, Epic: false, Legendary: false, Mythic: false, Divine: false },
             skillCooldown: 0,
             autoSkill: false,
             autoBoss: false,
             potions: [],
+            potionMaxBuyUpgrade: 0,
+            potionQualityUpgrade: 0,
             quests: [],
             monstersKilled: 0,
             bossesKilled: 0
@@ -898,22 +906,28 @@ export function useGameLogic() {
             addLog(`Insufficient funds for potion. Need ${cost}G.`, 'error');
             return;
         }
+
+        const maxPotions = 5 + (player.potionMaxBuyUpgrade * 5);
+        const currentStacks = player.potions.find(p => p.type === type)?.duration / 10 || 0;
+
+        if (currentStacks >= maxPotions) {
+            addLog(`Max ${type.toUpperCase()} potion stacks reached (${maxPotions}). Upgrade max buy limit in Alchemist tab.`, 'warning');
+            return;
+        }
+
         setPlayer(prev => {
             const existingIdx = prev.potions.findIndex(p => p.type === type);
             const newPotions = [...prev.potions];
-            const potionValue = 50 + (prev.stage * 5);
+            const qualityBonus = 1 + (prev.potionQualityUpgrade * 0.25);
+            const potionValue = (50 + (prev.stage * 5)) * qualityBonus;
             const potionDuration = 10; // 1 potion = 10 kills
 
             if (existingIdx !== -1) {
                 const p = newPotions[existingIdx];
-                if (p.duration >= 1000) { // 100 stacks max
-                    addLog(`Maximum ${type.toUpperCase()} potion stacks reached (100).`, 'warning');
-                    return prev;
-                }
                 newPotions[existingIdx] = {
                     ...p,
-                    duration: Math.min(1000, p.duration + potionDuration),
-                    value: potionValue // Update to latest stage value
+                    duration: p.duration + potionDuration,
+                    value: potionValue // Update to current stage value + quality
                 };
             } else {
                 newPotions.push({ type, value: potionValue, duration: potionDuration });
@@ -925,7 +939,47 @@ export function useGameLogic() {
                 potions: newPotions
             };
         });
-        addLog(`Acquired ${type.toUpperCase()} Potion! Stacks updated.`, 'success');
+        addLog(`Acquired ${type.toUpperCase()} Potion! Stacks: ${currentStacks + 1}/${maxPotions}`, 'success');
+    };
+
+    const buyPotionMaxUpgrade = () => {
+        if (player.potionMaxBuyUpgrade >= 20) {
+            addLog('Potion Max Buy limit reached! (Max 20 upgrades)', 'warning');
+            return;
+        }
+        const cost = 5000 * Math.pow(1.8, player.potionMaxBuyUpgrade);
+        if (player.gold < cost) {
+            addLog(`Need ${Math.floor(cost)}G to upgrade Potion Max Buy limit.`, 'error');
+            return;
+        }
+        setPlayer(prev => ({
+            ...prev,
+            gold: prev.gold - cost,
+            potionMaxBuyUpgrade: prev.potionMaxBuyUpgrade + 1
+        }));
+        addLog(`Potion Max Buy limit upgraded to ${5 + (player.potionMaxBuyUpgrade + 1) * 5}!`, 'success');
+    };
+
+    const buyPotionQualityUpgrade = () => {
+        if (player.potionQualityUpgrade >= 8) {
+            addLog('Potion Quality reached maximum! (Max +200%)', 'warning');
+            return;
+        }
+        if (player.stage < (player.potionQualityUpgrade + 1) * 10) {
+            addLog(`Must reach Stage ${(player.potionQualityUpgrade + 1) * 10} for next quality upgrade.`, 'warning');
+            return;
+        }
+        const cost = 10000 * Math.pow(2.2, player.potionQualityUpgrade);
+        if (player.gold < cost) {
+            addLog(`Need ${Math.floor(cost)}G to upgrade Potion Quality.`, 'error');
+            return;
+        }
+        setPlayer(prev => ({
+            ...prev,
+            gold: prev.gold - cost,
+            potionQualityUpgrade: prev.potionQualityUpgrade + 1
+        }));
+        addLog(`Potion Quality upgraded! (Total +${(player.potionQualityUpgrade + 1) * 25}%)`, 'success');
     };
 
     const acceptQuest = (type: 'kill_monster' | 'kill_boss') => {
@@ -1004,7 +1058,8 @@ export function useGameLogic() {
             enterVillage, openSettings, openDashboard, runAway, showHelp,
             equipItem, sellItem, upgradeItem, toggleItemLock, heal, allocateStat,
             chooseClass, reborn, buyRebornUpgrade, manualSave, setShowLoginModal,
-            login, logout, buyPotion, acceptQuest, completeQuest
+            login, logout, buyPotion, acceptQuest, completeQuest,
+            buyPotionMaxUpgrade, buyPotionQualityUpgrade
         },
         showLoginModal,
         isLoggingIn,

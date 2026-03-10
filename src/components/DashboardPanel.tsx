@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy, Clock, User, ArrowLeft } from 'lucide-react';
+import { Trophy, Clock, User, ArrowLeft, Skull, Target, Zap } from 'lucide-react';
 import { getGlobalRecords, isFirebaseConfigured } from '../services/firebase';
 import { RebornRecord } from '../types';
 
@@ -30,7 +30,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose }) => {
                 <h2 className="text-xl font-bold flex items-center gap-2">
                     <Trophy size={20} className="text-yellow-400" /> GLOBAL_DASHBOARD
                 </h2>
-                <button 
+                <button
                     onClick={onClose}
                     className="text-gray-500 hover:text-[#00ff00] flex items-center gap-1 text-xs"
                 >
@@ -57,8 +57,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose }) => {
                 ) : (
                     <div className="space-y-3">
                         {records.map((record, index) => (
-                            <div 
-                                key={record.id} 
+                            <div
+                                key={record.id}
                                 className="border border-[#00ff00]/20 bg-[#111] p-3 rounded-sm flex items-center gap-4 hover:border-[#00ff00]/50 transition-colors"
                             >
                                 <div className="text-lg font-bold text-gray-600 w-6">
@@ -91,6 +91,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose }) => {
                                             <span className="text-gray-500">GOLD:</span> <span className="text-yellow-600">{record.gold}</span>
                                         </div>
                                         <div className="text-[10px]">
+                                            <span className="text-gray-500">MK:</span> <span className="text-red-400">{record.monstersKilled || 0}</span>
+                                        </div>
+                                        <div className="text-[10px]">
+                                            <span className="text-gray-500">BK:</span> <span className="text-red-600">{record.bossesKilled || 0}</span>
+                                        </div>
+                                        <div className="text-[10px]">
                                             <span className="text-gray-500">REBORN:</span> <span className="text-purple-400">{record.rebornCount}</span>
                                         </div>
                                     </div>
@@ -100,7 +106,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose }) => {
                     </div>
                 )}
             </div>
-            
+
             <div className="mt-4 pt-2 border-t border-[#00ff00]/10 text-[10px] text-gray-600 text-center italic">
                 Records are updated every time a player executes REBORN.EXE
             </div>

@@ -8,8 +8,8 @@ export const generateId = () => Math.random().toString(36).substring(2, 9);
 export const generateEnemy = (playerLevel: number, stage: number, isBoss: boolean = false): Enemy => {
   const stageMultiplier = 1 + stage * 0.2;
   const levelVariance = Math.max(1, playerLevel + Math.floor(Math.random() * 3) - 1);
-  
-  const template = isBoss 
+
+  const template = isBoss
     ? BOSS_TEMPLATES[Math.floor(Math.random() * BOSS_TEMPLATES.length)]
     : MONSTER_TEMPLATES[Math.floor(Math.random() * MONSTER_TEMPLATES.length)];
 
@@ -42,39 +42,40 @@ export const generateEnemies = (playerLevel: number, stage: number, isBoss: bool
 export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean = false, luck: number = 0): Item | null => {
   const chance = Math.random();
   // Luck increases drop chance slightly
-  const dropThreshold = isBoss ? 0.9 : (0.35 + (luck * 0.001));
+  // Luck increases drop chance slightly (Nerfed: 0.0005 per point)
+  const dropThreshold = isBoss ? 0.95 : (0.4 + (luck * 0.0005));
   if (chance > dropThreshold) return null;
 
   const typeRoll = Math.random();
   const type: ItemType = typeRoll > 0.66 ? 'Weapon' : typeRoll > 0.33 ? 'Armor' : 'Accessory';
-  
+
   let rarity: Rarity = 'Common';
   const baseRoll = Math.random();
-  // Luck increases rarity roll: each point of luck adds 0.1% chance
-  const rarityRoll = baseRoll + (stage * 0.005) + (luck * 0.001); 
+  // Luck increases rarity roll: each point of luck adds 0.05% chance (Nerfed from 0.1%)
+  const rarityRoll = baseRoll + (stage * 0.004) + (luck * 0.0005);
 
   if (isBoss) {
-    if (rarityRoll > 0.99) rarity = 'Divine';
-    else if (rarityRoll > 0.95) rarity = 'Mythic';
-    else if (rarityRoll > 0.85) rarity = 'Legendary';
+    if (rarityRoll > 0.995) rarity = 'Divine';
+    else if (rarityRoll > 0.97) rarity = 'Mythic';
+    else if (rarityRoll > 0.9) rarity = 'Legendary';
     else rarity = 'Epic';
   } else {
-    if (rarityRoll > 0.9999) rarity = 'Divine';
-    else if (rarityRoll > 0.995) rarity = 'Mythic';
-    else if (rarityRoll > 0.98) rarity = 'Legendary';
-    else if (rarityRoll > 0.92) rarity = 'Epic';
-    else if (rarityRoll > 0.75) rarity = 'Rare';
-    else if (rarityRoll > 0.40) rarity = 'Uncommon';
+    if (rarityRoll > 0.99995) rarity = 'Divine';
+    else if (rarityRoll > 0.997) rarity = 'Mythic';
+    else if (rarityRoll > 0.99) rarity = 'Legendary';
+    else if (rarityRoll > 0.94) rarity = 'Epic';
+    else if (rarityRoll > 0.8) rarity = 'Rare';
+    else if (rarityRoll > 0.5) rarity = 'Uncommon';
   }
 
   const rarityMultiplier = { Common: 1, Uncommon: 1.5, Rare: 2, Epic: 3, Legendary: 5, Mythic: 8, Divine: 15 }[rarity];
   const value = Math.floor((playerLevel * 1.2 + stage * 2 + Math.random() * 3) * rarityMultiplier);
-  
+
   const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
-  const noun = type === 'Weapon' ? WEAPON_NAMES[Math.floor(Math.random() * WEAPON_NAMES.length)] 
-             : type === 'Armor' ? ARMOR_NAMES[Math.floor(Math.random() * ARMOR_NAMES.length)]
-             : ACCESSORY_NAMES[Math.floor(Math.random() * ACCESSORY_NAMES.length)];
-  
+  const noun = type === 'Weapon' ? WEAPON_NAMES[Math.floor(Math.random() * WEAPON_NAMES.length)]
+    : type === 'Armor' ? ARMOR_NAMES[Math.floor(Math.random() * ARMOR_NAMES.length)]
+      : ACCESSORY_NAMES[Math.floor(Math.random() * ACCESSORY_NAMES.length)];
+
   let effect: { type: EffectType; value: number } | undefined;
   let setName: string | undefined;
 
@@ -83,13 +84,13 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
     const selectedType = effectTypes[Math.floor(Math.random() * effectTypes.length)];
     effect = {
       type: selectedType,
-      value: selectedType === 'luck' 
-        ? Math.floor(Math.random() * 20) + (rarityMultiplier * 5)
+      value: selectedType === 'luck'
+        ? Math.floor(Math.random() * 10) + (rarityMultiplier * 2)
         : selectedType === 'statusChance'
-        ? Math.floor(Math.random() * 5) + rarityMultiplier
-        : Math.floor(Math.random() * 10) + (rarityMultiplier * 2)
+          ? Math.floor(Math.random() * 5) + rarityMultiplier
+          : Math.floor(Math.random() * 10) + (rarityMultiplier * 2)
     };
-    
+
     // Unique items (Mythic/Divine) don't need a set name, they are unique
     if (rarity === 'Mythic' || rarity === 'Divine') {
       setName = undefined;

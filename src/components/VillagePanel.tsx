@@ -12,13 +12,15 @@ interface VillagePanelProps {
     sellItem: (item: Item) => void;
     toggleItemLock: (item: Item) => void;
     buyPotion: (type: 'exp' | 'coin' | 'luck') => void;
+    buyPotionMaxUpgrade: () => void;
+    buyPotionQualityUpgrade: () => void;
     acceptQuest: (type: 'kill_monster' | 'kill_boss') => void;
     completeQuest: (id: string) => void;
 }
 
 export const VillagePanel: React.FC<VillagePanelProps> = ({
     player, setPlayer, addLog, getEquipmentValue, upgradeItem, sellItem, toggleItemLock,
-    buyPotion, acceptQuest, completeQuest
+    buyPotion, buyPotionMaxUpgrade, buyPotionQualityUpgrade, acceptQuest, completeQuest
 }) => {
     const [villageTab, setVillageTab] = useState<'BLACKSMITH' | 'MERCHANT' | 'ALCHEMIST' | 'QUEST_BOARD'>('BLACKSMITH');
 
@@ -219,26 +221,68 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({
             {villageTab === 'ALCHEMIST' && (
                 <div className="flex flex-col gap-6">
                     <p className="text-gray-400 text-sm">Buy potions to temporarily boost your stats. Potions are consumed after killing monsters/bosses.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
-                            { type: 'exp', name: 'Experience Potion', desc: 'Boosts EXP gain by 50%+' },
-                            { type: 'coin', name: 'Wealth Potion', desc: 'Boosts Gold gain by 50%+' },
-                            { type: 'luck', name: 'Luck Potion', desc: 'Increases Luck by 50+' }
-                        ].map(p => (
-                            <div key={p.type} className="border border-green-900 bg-black p-4 flex flex-col justify-between">
-                                <div>
-                                    <h3 className="text-green-500 font-bold text-sm mb-1 uppercase">{p.name}</h3>
-                                    <p className="text-[10px] text-gray-500 mb-4">{p.desc}</p>
+                            { type: 'exp', name: 'Experience Potion', desc: 'Boosts EXP gain' },
+                            { type: 'coin', name: 'Wealth Potion', desc: 'Boosts Gold gain' },
+                            { type: 'luck', name: 'Luck Potion', desc: 'Increases Luck' }
+                        ].map(p => {
+                            const maxPotions = 5 + (player.potionMaxBuyUpgrade * 5);
+                            const currentStacks = player.potions.find(pot => pot.type === p.type)?.duration / 10 || 0;
+                            const cost = 200 + (player.stage * 100);
+                            return (
+                                <div key={p.type} className="border border-green-900 bg-black p-4 flex flex-col justify-between">
+                                    <div>
+                                        <h3 className="text-green-500 font-bold text-sm mb-1 uppercase">{p.name}</h3>
+                                        <p className="text-[10px] text-gray-500 mb-2">{p.desc}</p>
+                                        <div className="text-[10px] text-gray-400 mb-4 uppercase">
+                                            Limit: {currentStacks}/{maxPotions}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => buyPotion(p.type as any)}
+                                        disabled={player.gold < cost || currentStacks >= maxPotions}
+                                        className="w-full py-2 bg-green-900/20 text-green-400 border border-green-900 hover:bg-green-900/40 text-xs disabled:opacity-50"
+                                    >
+                                        Buy ({cost}G)
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => buyPotion(p.type as any)}
-                                    disabled={player.gold < (200 + (player.stage * 100))}
-                                    className="w-full py-2 bg-green-900/20 text-green-400 border border-green-900 hover:bg-green-900/40 text-xs disabled:opacity-50"
-                                >
-                                    Buy ({200 + (player.stage * 100)}G)
-                                </button>
+                            );
+                        })}
+
+                        <div className="border border-purple-900 bg-black p-4 flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-purple-500 font-bold text-sm mb-1 uppercase">MAX BUY LIMIT</h3>
+                                <p className="text-[10px] text-gray-500 mb-2">+5 stack limit to all potions.</p>
+                                <div className="text-[10px] text-gray-400 mb-4 uppercase">
+                                    Current: {5 + (player.potionMaxBuyUpgrade * 5)} | Lv.{player.potionMaxBuyUpgrade}/20
+                                </div>
                             </div>
-                        ))}
+                            <button
+                                onClick={buyPotionMaxUpgrade}
+                                disabled={player.gold < (5000 * Math.pow(1.8, player.potionMaxBuyUpgrade)) || player.potionMaxBuyUpgrade >= 20}
+                                className="w-full py-2 bg-purple-900/20 text-purple-400 border border-purple-900 hover:bg-purple-900/40 text-xs disabled:opacity-50"
+                            >
+                                Upgrade ({Math.floor(5000 * Math.pow(1.8, player.potionMaxBuyUpgrade))}G)
+                            </button>
+                        </div>
+
+                        <div className="border border-blue-900 bg-black p-4 flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-blue-500 font-bold text-sm mb-1 uppercase">POTION QUALITY</h3>
+                                <p className="text-[10px] text-gray-500 mb-2">+25% effectiveness to potions.</p>
+                                <div className="text-[10px] text-gray-400 mb-4 uppercase">
+                                    Bonus: +{player.potionQualityUpgrade * 25}% | Stage Req: {(player.potionQualityUpgrade + 1) * 10}
+                                </div>
+                            </div>
+                            <button
+                                onClick={buyPotionQualityUpgrade}
+                                disabled={player.gold < (10000 * Math.pow(2.2, player.potionQualityUpgrade)) || player.potionQualityUpgrade >= 8 || player.stage < (player.potionQualityUpgrade + 1) * 10}
+                                className="w-full py-2 bg-blue-900/20 text-blue-400 border border-blue-900 hover:bg-blue-900/40 text-xs disabled:opacity-50"
+                            >
+                                Upgrade ({Math.floor(10000 * Math.pow(2.2, player.potionQualityUpgrade))}G)
+                            </button>
+                        </div>
                     </div>
                     {player.potions.length > 0 && (
                         <div>
