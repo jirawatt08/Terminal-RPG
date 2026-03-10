@@ -13,7 +13,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
   {
     name: 'Slime',
     passive: { type: 'regen', value: 5, description: 'Regenerates 5% HP per turn.' },
-    hpMult: 1.2, atkMult: 0.8, defMult: 0.5
+    hpMult: 1.5, atkMult: 1.0, defMult: 0.5
   },
   {
     name: 'Goblin',
@@ -25,7 +25,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     name: 'Skeleton',
     skill: { name: 'Bone Toss', mult: 1.3, cooldown: 3 },
     passive: { type: 'thorns', value: 10, description: 'Reflects 10% of physical damage back.' },
-    hpMult: 0.9, atkMult: 1.2, defMult: 0.8
+    hpMult: 1.2, atkMult: 1.5, defMult: 1.0
   },
   {
     name: 'Wolf',

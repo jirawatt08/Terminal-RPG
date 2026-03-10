@@ -108,12 +108,18 @@ const FIELD_MAP: Record<string, string> = {
   monstersKilled: 'mk', bossesKilled: 'bk',
   potionMaxBuyUpgrade: 'pmbu', potionQualityUpgrade: 'pqu',
   rebornHistory: 'rh',
-  autoHealUnlocked: 'ahu', autoHealThreshold: 'aht'
+  autoHealUnlocked: 'ahu', autoHealThreshold: 'aht',
+  quests: 'q', potions: 'po',
+  // Reborn Upgrade subfields
+  atkBonus: 'ab', hpBonus: 'hb', expBonus: 'eb', goldBonus: 'gb', statBonus: 'sb', pointBonus: 'pb',
+  // Attribute names (also used in Item stats)
+  str: 'str', agi: 'agi', vit: 'vit', int: 'int', luk: 'luk'
 };
 
 const ITEM_MAP: Record<string, string> = {
   id: 'id', name: 'n', type: 't', rarity: 'r', value: 'v',
-  sellPrice: 'p', effect: 'ef', setName: 'sn', upgradeLevel: 'ul'
+  sellPrice: 'p', effect: 'ef', setName: 'sn', upgradeLevel: 'ul',
+  stats: 'st'
 };
 
 const compressData = (data: any): any => {

@@ -1,4 +1,4 @@
-import { Enemy, Item, ItemType, Rarity, EffectType } from './types';
+import { Enemy, Item, ItemType, Rarity, EffectType, PlayerStats } from './types';
 import { WEAPON_NAMES, ARMOR_NAMES, ACCESSORY_NAMES, ADJECTIVES, SET_NAMES } from './constants';
 import { MONSTER_TEMPLATES } from './data/monsters';
 import { BOSS_TEMPLATES } from './data/bosses';
@@ -6,7 +6,8 @@ import { BOSS_TEMPLATES } from './data/bosses';
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export const generateEnemy = (playerLevel: number, stage: number, isBoss: boolean = false): Enemy => {
-  const stageMultiplier = 1 + stage * 0.2;
+  const stageMultiplier = stage === 1 ? 1.0 : 1 + (stage - 1) * 0.3; // Starting at 1.0 for stage 1 and reducing scaling from 0.4 to 0.3
+  const expStageMultiplier = 1 + Math.pow(stage, 1.2) * 0.5; // New EXP specific multiplier
   const levelVariance = Math.max(1, playerLevel + Math.floor(Math.random() * 3) - 1);
 
   const template = isBoss
@@ -23,7 +24,7 @@ export const generateEnemy = (playerLevel: number, stage: number, isBoss: boolea
     maxHp: Math.floor((20 + levelVariance * 10) * template.hpMult * stageMultiplier),
     attack: Math.floor((5 + levelVariance * 2) * template.atkMult * stageMultiplier),
     defense: Math.floor((2 + levelVariance) * template.defMult * stageMultiplier),
-    expReward: Math.floor((10 + levelVariance * 5) * (isBoss ? 5 : 1) * stageMultiplier),
+    expReward: Math.floor((15 + levelVariance * 5) * (isBoss ? 5 : 1) * expStageMultiplier),
     goldReward: Math.floor((5 + levelVariance * 2) * (isBoss ? 5 : 1) * stageMultiplier),
     isBoss,
     skill,
@@ -51,22 +52,27 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
 
   let rarity: Rarity = 'Common';
   const baseRoll = Math.random();
-  // Luck increases rarity roll: each point of luck adds 0.05% chance (Nerfed from 0.1%)
-  const rarityRoll = baseRoll + (stage * 0.004) + (luck * 0.0005);
+  // Luck increases rarity roll: each point of luck adds 0.08% chance
+  const rarityRoll = baseRoll + (stage * 0.004) + (luck * 0.0008); // Increased from 0.0005
 
   if (isBoss) {
-    if (rarityRoll > 0.995) rarity = 'Divine';
-    else if (rarityRoll > 0.97) rarity = 'Mythic';
-    else if (rarityRoll > 0.9) rarity = 'Legendary';
+    if (rarityRoll > 1.15) rarity = 'Divine';
+    else if (rarityRoll > 1.05) rarity = 'Mythic';
+    else if (rarityRoll > 0.95) rarity = 'Legendary';
     else rarity = 'Epic';
   } else {
-    if (rarityRoll > 0.99995) rarity = 'Divine';
-    else if (rarityRoll > 0.997) rarity = 'Mythic';
-    else if (rarityRoll > 0.99) rarity = 'Legendary';
-    else if (rarityRoll > 0.94) rarity = 'Epic';
+    if (rarityRoll > 1.3) rarity = 'Divine';
+    else if (rarityRoll > 1.2) rarity = 'Mythic';
+    else if (rarityRoll > 1.1) rarity = 'Legendary';
+    else if (rarityRoll > 1.0) rarity = 'Epic';
     else if (rarityRoll > 0.8) rarity = 'Rare';
-    else if (rarityRoll > 0.5) rarity = 'Uncommon';
+    else if (rarityRoll > 0.45) rarity = 'Uncommon';
   }
+
+  // Rarity Gating by Stage
+  if (rarity === 'Divine' && stage < 10) rarity = 'Mythic';
+  if (rarity === 'Mythic' && stage < 5) rarity = 'Legendary';
+  // Legendary is base (Stage 1) as requested.
 
   const rarityMultiplier = { Common: 1, Uncommon: 1.5, Rare: 2, Epic: 3, Legendary: 5, Mythic: 8, Divine: 15 }[rarity];
   const value = Math.floor((playerLevel * 1.2 + stage * 2 + Math.random() * 3) * rarityMultiplier);
@@ -99,6 +105,26 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
     }
   }
 
+  // Generate Stats (Uncommon+)
+  let itemStats: any = undefined;
+  if (rarity !== 'Common') {
+    itemStats = {};
+    const statPool: (keyof PlayerStats)[] = ['str', 'agi', 'vit', 'int', 'luk'];
+    const numStats = rarity === 'Uncommon' ? 1
+      : rarity === 'Rare' ? 2
+        : rarity === 'Epic' ? 3
+          : rarity === 'Legendary' ? 4
+            : 5; // Mythic/Divine get all stats
+
+    // Choose random stats from the pool
+    const selectedStats = [...statPool].sort(() => 0.5 - Math.random()).slice(0, numStats);
+
+    selectedStats.forEach(stat => {
+      const baseValue = Math.floor(playerLevel / 5) + 1;
+      itemStats[stat] = Math.max(1, Math.floor(baseValue * rarityMultiplier * (0.8 + Math.random() * 0.4)));
+    });
+  }
+
   let finalName = `${adj} ${noun}`;
   if (setName) finalName = `${setName}'s ${finalName}`;
   else if (rarity === 'Mythic' || rarity === 'Divine') finalName = `${finalName} of the Ancients`;
@@ -111,6 +137,7 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
     value,
     sellPrice: value * 10,
     effect,
+    stats: itemStats,
     setName
   };
 };

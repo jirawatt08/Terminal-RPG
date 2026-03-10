@@ -229,7 +229,16 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({
                                             {item.name} {item.upgradeLevel && item.upgradeLevel > 0 ? `+${item.upgradeLevel}` : ''}
                                             {item.locked && <Lock size={12} className="text-red-500" />}
                                         </div>
-                                        <div className="text-xs text-gray-500">Value: {getEquipmentValue(item)}</div>
+                                        <div className="text-xs text-gray-500 flex items-center gap-2">
+                                            Value: {getEquipmentValue(item)}
+                                            {item.stats && (
+                                                <span className="text-[10px] text-gray-600 border-l border-gray-800 pl-2">
+                                                    {Object.entries(item.stats).map(([s, v], i) => (
+                                                        <span key={s} className="ml-1">{v}{s.toUpperCase()}{i < Object.entries(item.stats!).length - 1 ? ',' : ''}</span>
+                                                    ))}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button

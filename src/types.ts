@@ -59,6 +59,7 @@ export interface Item {
   value: number; // Base stat (ATK or DEF)
   sellPrice: number;
   effect?: { type: EffectType; value: number };
+  stats?: Partial<PlayerStats>;
   setName?: string;
   upgradeLevel?: number;
   locked?: boolean;
@@ -121,6 +122,7 @@ export interface Player {
     expBonus: number; // Permanent EXP % bonus
     goldBonus: number; // Permanent Gold % bonus
     statBonus: number; // Extra stat points per level
+    pointBonus: number; // Permanent reborn point % bonus
   };
   potions: PotionEffect[];
   potionMaxBuyUpgrade: number;

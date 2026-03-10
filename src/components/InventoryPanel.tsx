@@ -72,6 +72,13 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipIte
                             </div>
                             <div className="flex justify-between items-center mb-1">
                                 {item.effect ? <div className="text-[10px] text-blue-400">+{Math.floor(item.effect.value)}% {item.effect.type}</div> : <div></div>}
+                                {item.stats && (
+                                    <div className="text-[10px] text-gray-500 uppercase flex gap-1">
+                                        {Object.entries(item.stats).map(([s, v]) => (
+                                            <span key={s}>{v}{s.toUpperCase()}</span>
+                                        ))}
+                                    </div>
+                                )}
                                 {item.locked && <Lock size={10} className="text-red-500" />}
                             </div>
                             <div className="flex justify-between items-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">

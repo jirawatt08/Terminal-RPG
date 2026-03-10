@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithGoogle, logout as firebaseLogout, savePlayerData, getPlayerData, saveRebornRecord, isFirebaseConfigured } from '../services/firebase';
-import { Player, Enemy, GameState, LogEntry, Item, PlayerClass, Quest, Potion } from '../types';
+import { Player, Enemy, GameState, LogEntry, Item, PlayerClass, Quest, Potion, PlayerStats } from '../types';
 import { CLASS_SKILLS } from '../constants';
 import { generateEnemies, generateLoot, generateId } from '../utils';
 
@@ -29,7 +29,8 @@ export function useGameLogic() {
             hpBonus: 0,
             expBonus: 0,
             goldBonus: 0,
-            statBonus: 0
+            statBonus: 0,
+            pointBonus: 0
         },
         potions: [],
         potionMaxBuyUpgrade: 0,
@@ -73,14 +74,41 @@ export function useGameLogic() {
                 try {
                     const cloudData = await getPlayerData(user.uid);
                     if (cloudData) {
+                        // Data Repair & Requested Reset
+                        let repairedData = { ...cloudData };
+                        let needsSave = false;
+
+                        // Fix NaN Reborn Points
+                        if (isNaN(repairedData.rebornPoints as number)) {
+                            repairedData.rebornPoints = 0;
+                            needsSave = true;
+                            addLog('[REPAIR] Invalid Reborn Points detected and reset to 0.', 'warning');
+                        }
+
+                        // Explicit Upgrade Reset (One-time or Requested)
+                        // Setting to base values if they are NaN or as part of the total reset request
+                        const baseUpgrades = {
+                            atkBonus: 0, hpBonus: 0, expBonus: 0, goldBonus: 0, statBonus: 0, pointBonus: 0
+                        };
+
+                        // We reset upgrades for this session as requested by user
+                        repairedData.rebornUpgrades = baseUpgrades;
+                        needsSave = true;
+                        addLog('[SYSTEM] Reborn upgrades have been reset as requested.', 'info');
+
                         setPlayer(prev => ({
                             ...prev,
-                            ...cloudData,
+                            ...repairedData,
                             uid: user.uid,
                             displayName: user.displayName || 'Player',
                             photoURL: user.photoURL || ''
                         }));
-                        lastSavedRef.current = JSON.stringify(cloudData);
+
+                        if (needsSave) {
+                            savePlayerData(user.uid, repairedData);
+                        }
+
+                        lastSavedRef.current = JSON.stringify(repairedData);
                         setLastSaveTime(new Date());
                         addLog(`[SYSTEM] Connection established. Welcome back, ${user.displayName}.`, 'success');
                     } else {
@@ -161,12 +189,28 @@ export function useGameLogic() {
         addLog('Type or click commands to begin your process.', 'info');
     }, [addLog]);
 
+    // Stat Bonus from Equipment
+    const getEquipmentStatBonus = (stat: keyof PlayerStats) => {
+        let total = 0;
+        Object.values(player.equipment).forEach(item => {
+            const i = item as Item | null;
+            if (i?.stats && i.stats[stat]) total += i.stats[stat]!;
+        });
+        return total;
+    };
+
+    const totalStr = player.stats.str + getEquipmentStatBonus('str');
+    const totalAgi = player.stats.agi + getEquipmentStatBonus('agi');
+    const totalVit = player.stats.vit + getEquipmentStatBonus('vit');
+    const totalInt = player.stats.int + getEquipmentStatBonus('int');
+    const totalLuk = player.stats.luk + getEquipmentStatBonus('luk');
+
     // Derived stats
-    const strMilestones = Math.floor(player.stats.str / 10);
-    const agiMilestones = Math.floor(player.stats.agi / 10);
-    const vitMilestones = Math.floor(player.stats.vit / 10);
-    const intMilestones = Math.floor(player.stats.int / 10);
-    const lukMilestones = Math.floor(player.stats.luk / 10);
+    const strMilestones = Math.floor(totalStr / 10);
+    const agiMilestones = Math.floor(totalAgi / 10);
+    const vitMilestones = Math.floor(totalVit / 10);
+    const intMilestones = Math.floor(totalInt / 10);
+    const lukMilestones = Math.floor(totalLuk / 10);
 
     const bonusAtkPct = strMilestones * 0.05 + (player.playerClass === 'Berserker' ? 0.3 : 0);
     const bonusCritDmg = 1.5 + (strMilestones * 0.10) + (player.playerClass === 'Rogue' ? 0.2 : player.playerClass === 'Assassin' ? 0.4 : 0);
@@ -201,14 +245,15 @@ export function useGameLogic() {
     const setBonusCrit = (hasSet('Assassin') ? 15 : 0) + (hasSet('Shadow') ? 10 : 0);
     const setBonusLifesteal = (hasSet('Vampire') ? 15 : 0);
 
-    const maxHp = Math.floor((player.maxHp + (player.stats.vit * 10)) * (1 + bonusHpPct + setBonusHpPct + (player.rebornUpgrades.hpBonus / 100)));
-    const classBonusMp = (player.playerClass === 'Mage' ? 50 : player.playerClass === 'Archmage' ? 150 : player.playerClass === 'Necromancer' ? 100 : player.playerClass === 'Paladin' ? 50 : 0);
-    const maxMp = Math.floor((player.maxMp + (player.stats.int * 5) + classBonusMp) * (1 + setBonusMpPct));
-
     const getEquipmentValue = (item: Item | null) => {
         if (!item) return 0;
         return Math.floor(item.value * (1 + (item.upgradeLevel || 0) * 0.2));
     };
+
+    // Final Derived Stats
+    const maxHp = Math.floor((player.maxHp + (totalVit * 40) + (getEquipmentValue(player.equipment.armor) * 10)) * (1 + bonusHpPct + setBonusHpPct + (player.rebornUpgrades.hpBonus / 100)));
+    const classBonusMp = (player.playerClass === 'Mage' ? 50 : player.playerClass === 'Archmage' ? 150 : player.playerClass === 'Necromancer' ? 100 : player.playerClass === 'Paladin' ? 50 : 0);
+    const maxMp = Math.floor((player.maxMp + (totalInt * 15) + classBonusMp) * (1 + setBonusMpPct));
 
     const getEffectTotal = (type: 'lifesteal' | 'crit' | 'dodge' | 'luck' | 'statusChance' | 'reduction') => {
         let total = 0;
@@ -223,11 +268,11 @@ export function useGameLogic() {
     const potionGoldBonus = player.potions.filter(p => p.type === 'coin').reduce((acc, p) => acc + p.value, 0);
     const potionLuckBonus = player.potions.filter(p => p.type === 'luck').reduce((acc, p) => acc + p.value, 0);
 
-    const totalAttack = Math.floor((player.baseAttack + (player.stats.str * 2) + getEquipmentValue(player.equipment.weapon)) * (1 + bonusAtkPct + setBonusAtkPct + (player.rebornUpgrades.atkBonus / 100)));
-    const totalDefense = Math.floor((player.baseDefense + (player.stats.vit * 1.5) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
-    const totalMagicAttack = Math.floor((player.stats.int * 2 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
-    const totalLuck = player.stats.luk + getEffectTotal('luck') + potionLuckBonus;
-    const totalStatusChance = 2 + Math.floor(player.stats.int / 5) + getEffectTotal('statusChance');
+    const totalAttack = Math.floor((player.baseAttack + (totalStr * 2) + getEquipmentValue(player.equipment.weapon)) * (1 + bonusAtkPct + setBonusAtkPct + (player.rebornUpgrades.atkBonus / 100)));
+    const totalDefense = Math.floor((player.baseDefense + (totalVit * 1.5) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
+    const totalMagicAttack = Math.floor((totalInt * 2 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
+    const totalLuck = totalLuk + getEffectTotal('luck') + potionLuckBonus;
+    const totalStatusChance = 2 + Math.floor(totalInt / 5) + getEffectTotal('statusChance');
 
     let critChance = getEffectTotal('crit') + bonusCritChance + setBonusCrit;
     let finalCritDmg = bonusCritDmg;
@@ -235,9 +280,14 @@ export function useGameLogic() {
         finalCritDmg += (critChance - 100) / 100;
         critChance = 100;
     }
-    const dodgeChance = getEffectTotal('dodge') + bonusDodgeChance + setBonusDodge;
-    const reduction = getEffectTotal('reduction');
-    const lifesteal = getEffectTotal('lifesteal') + (player.playerClass === 'Berserker' ? 10 : player.playerClass === 'Necromancer' ? 15 : 0) + setBonusLifesteal;
+    const dodgeChance = Math.min(75, getEffectTotal('dodge') + bonusDodgeChance + setBonusDodge);
+    const reduction = Math.min(80, getEffectTotal('reduction'));
+    const lifesteal = Math.min(100, getEffectTotal('lifesteal') + (player.playerClass === 'Berserker' ? 10 : player.playerClass === 'Necromancer' ? 15 : 0) + setBonusLifesteal);
+    // Fix NaN: Robust fallbacks for all components of the calculation
+    const pointBonusVal = player.rebornUpgrades?.pointBonus || 0;
+    const currentLvl = player.level || 1;
+    const currentStg = player.stage || 1;
+    const nextRebornPoints = Math.floor((Math.floor(currentLvl / 10) + currentStg) * (1 + pointBonusVal / 100)) || 0;
 
     // Game Loop
     useEffect(() => {
@@ -407,9 +457,9 @@ export function useGameLogic() {
                                 if (roll <= successThreshold) {
                                     let effectValue = i.effect.value;
                                     if (i.effect.type === 'poison') {
-                                        effectValue = Math.floor(target.maxHp * 0.05); // 5% of enemy max HP
+                                        effectValue = Math.min(Math.floor(target.maxHp * 0.05), totalAttack * 10); // 5% of max HP, capped at 10x ATK
                                     } else if (i.effect.type === 'burn') {
-                                        effectValue = Math.floor(totalDefense * 0.5); // 50% of player DEF
+                                        effectValue = Math.min(Math.floor(totalDefense * 0.5), totalAttack * 5); // 50% of DEF, capped at 5x ATK
                                     }
                                     target.statusEffects.push({
                                         type: i.effect.type as import('../types').StatusEffectType,
@@ -467,7 +517,9 @@ export function useGameLogic() {
                         if (newPlayer.exp >= newPlayer.maxExp) {
                             newPlayer.level += 1;
                             newPlayer.exp -= newPlayer.maxExp;
-                            newPlayer.maxExp = Math.floor(newPlayer.maxExp * 1.5);
+                            // Faster early leveling: 1.15x growth until level 25, 1.5x after
+                            const expGrowth = newPlayer.level < 25 ? 1.15 : 1.5;
+                            newPlayer.maxExp = Math.floor(newPlayer.maxExp * expGrowth);
                             newPlayer.statPoints += 3 + newPlayer.rebornUpgrades.statBonus;
                             newPlayer.hp = maxHp;
                             addLog(`[LEVEL UP] Reached Level ${newPlayer.level}! +${3 + newPlayer.rebornUpgrades.statBonus} Stat Points.`, 'success');
@@ -800,7 +852,11 @@ export function useGameLogic() {
             return;
         }
 
-        const pointsEarned = Math.floor(player.level / 10) + (player.stage);
+        // Fix NaN: Robust fallbacks for all components of the calculation
+        const pointBonusVal = player.rebornUpgrades?.pointBonus || 0;
+        const currentLvl = player.level || 1;
+        const currentStg = player.stage || 1;
+        const pointsEarned = Math.floor((Math.floor(currentLvl / 10) + currentStg) * (1 + pointBonusVal / 100)) || 0;
 
         const record = {
             id: generateId(),
@@ -893,8 +949,24 @@ export function useGameLogic() {
             hpBonus: 5,
             expBonus: 10,
             goldBonus: 10,
-            statBonus: 20
+            statBonus: 20,
+            pointBonus: 30
         };
+
+        const limits: Record<keyof Player['rebornUpgrades'], number> = {
+            atkBonus: 1000,
+            hpBonus: 1000,
+            expBonus: 500,
+            goldBonus: 500,
+            statBonus: 20,
+            pointBonus: 200
+        };
+
+        const currentVal = player.rebornUpgrades[type] || 0;
+        if (currentVal >= limits[type]) {
+            addLog(`Upgrade "${type}" has reached its maximum level.`, 'error');
+            return;
+        }
 
         const cost = costs[type];
         if (player.rebornPoints < cost) {
@@ -1054,7 +1126,9 @@ export function useGameLogic() {
             if (newPlayer.exp >= newPlayer.maxExp) {
                 newPlayer.level += 1;
                 newPlayer.exp -= newPlayer.maxExp;
-                newPlayer.maxExp = Math.floor(newPlayer.maxExp * 1.5);
+                // Early levels grow faster (1.2x instead of 1.5x) until Lv.25
+                const growthRate = newPlayer.level < 25 ? 1.2 : 1.5;
+                newPlayer.maxExp = Math.floor(newPlayer.maxExp * growthRate);
                 newPlayer.statPoints += 3 + newPlayer.rebornUpgrades.statBonus;
                 newPlayer.hp = Math.floor((newPlayer.maxHp + (newPlayer.stats.vit * 10)) * (1 + (vitMilestones * 0.05 + (newPlayer.playerClass === 'Warrior' ? 0.1 : newPlayer.playerClass === 'Paladin' ? 0.2 : 0)) + setBonusHpPct + (newPlayer.rebornUpgrades.hpBonus / 100))); // Rough maxHp calc for heal
                 addLog(`[LEVEL UP] Reached Level ${newPlayer.level}!`, 'success');
@@ -1075,12 +1149,14 @@ export function useGameLogic() {
         lastSaveTime,
         stats: {
             strMilestones, agiMilestones, vitMilestones, intMilestones, lukMilestones,
+            totalStr, totalAgi, totalVit, totalInt, totalLuk,
             activeSets, hasSet,
             setBonusGoldPct, setBonusExpPct,
             maxHp, maxMp, totalAttack, totalDefense, totalMagicAttack, totalLuck, totalStatusChance,
             critChance, finalCritDmg, dodgeChance, lifesteal, getEquipmentValue,
             potionExpBonus, potionGoldBonus, potionLuckBonus,
             rebornHistory: player.rebornHistory,
+            nextRebornPoints
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,

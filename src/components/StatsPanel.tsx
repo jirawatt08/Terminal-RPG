@@ -81,6 +81,10 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                         <span className="flex items-center gap-1"><Sword size={14} /> ATK:</span>
                         <span>{Math.floor(stats.totalAttack)}</span>
                     </div>
+                    <div className="flex justify-between text-blue-400/70">
+                        <span className="flex items-center gap-1"><Zap size={14} /> M.ATK:</span>
+                        <span>{Math.floor(stats.totalMagicAttack)}</span>
+                    </div>
                     <div className="flex justify-between text-gray-400">
                         <span className="flex items-center gap-1"><Shield size={14} /> DEF:</span>
                         <span>{Math.floor(stats.totalDefense)}</span>
@@ -100,7 +104,10 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                             </div>
                             {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => (
                                 <div key={stat} className="flex justify-between items-center text-xs mb-1">
-                                    <span className="uppercase">{stat}: {player.stats[stat]}</span>
+                                    <span className="uppercase">
+                                        {stat}: <span className="text-white">{stats['total' + stat.charAt(0).toUpperCase() + stat.slice(1)]}</span>
+                                        <span className="text-[10px] text-gray-600 ml-1">({player.stats[stat]})</span>
+                                    </span>
                                     {player.statPoints > 0 && (
                                         <button onClick={() => allocateStat(stat)} className="text-[#00ff00] hover:text-white"><ArrowUpCircle size={14} /></button>
                                     )}
@@ -189,6 +196,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                             <div className="text-[10px] text-gray-500 mt-1 text-right">
                                                 +{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}
                                                 {item.effect && ` | +${item.effect.value}% ${item.effect.type}`}
+                                                {item.stats && Object.entries(item.stats).map(([s, v]) => ` | ${v}${s.toUpperCase()}`)}
                                             </div>
                                         )}
                                     </div>
@@ -223,12 +231,22 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                     <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{Math.floor(stats.totalMagicAttack)}</span></div>
                                     <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{Math.floor(stats.critChance)}%</span></div>
                                     <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(stats.finalCritDmg * 100)}%</span></div>
-                                    <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{Math.floor(stats.dodgeChance)}%</span></div>
-                                    <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{Math.floor(stats.lifesteal)}%</span></div>
+                                    <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{Math.floor(stats.dodgeChance)}%{stats.dodgeChance >= 75 ? ' (MAX)' : ''}</span></div>
+                                    <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{Math.floor(stats.lifesteal)}%{stats.lifesteal >= 100 ? ' (MAX)' : ''}</span></div>
+                                    <div className="flex justify-between"><span>Reduction:</span> <span className="text-blue-400">{Math.floor(stats.reduction)}%{stats.reduction >= 80 ? ' (MAX)' : ''}</span></div>
                                     <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{Math.floor(stats.totalLuck)}</span></div>
                                     <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{Math.floor(stats.totalStatusChance)}/10</span></div>
                                     <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{Math.floor((stats.setBonusGoldPct + (stats.potionGoldBonus / 100)) * 100)}%</span></div>
                                     <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{Math.floor((stats.setBonusExpPct + (stats.potionExpBonus / 100)) * 100)}%</span></div>
+
+                                    <div className="mt-2 pt-2 border-t border-gray-800">
+                                        <div className="text-[10px] text-yellow-500/70 mb-1 uppercase">Stage Rarity Unlocks</div>
+                                        <div className="grid grid-cols-3 gap-1 text-[9px]">
+                                            <div className={player.stage >= 1 ? 'text-purple-400' : 'text-gray-600'}>STAGE 1: LEGENDARY</div>
+                                            <div className={player.stage >= 5 ? 'text-red-500' : 'text-gray-600'}>STAGE 5: MYTHIC</div>
+                                            <div className={player.stage >= 10 ? 'text-yellow-300' : 'text-gray-600'}>STAGE 10: DIVINE</div>
+                                        </div>
+                                    </div>
                                     {player.potions.length > 0 && (
                                         <div className="mt-2 pt-2 border-t border-gray-800">
                                             <div className="text-[10px] text-green-500 mb-1 uppercase">Active Potions</div>
@@ -255,41 +273,37 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                         <div className="space-y-2">
                             <div className="text-[10px] text-gray-500 uppercase">Permanent Upgrades</div>
                             <div className="grid grid-cols-1 gap-2">
-                                <button
-                                    onClick={() => buyRebornUpgrade('atkBonus')}
-                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
-                                >
-                                    <span>ATK BONUS (+{player.rebornUpgrades.atkBonus}%)</span>
-                                    <span className="text-yellow-500">5 RP</span>
-                                </button>
-                                <button
-                                    onClick={() => buyRebornUpgrade('hpBonus')}
-                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
-                                >
-                                    <span>HP BONUS (+{player.rebornUpgrades.hpBonus}%)</span>
-                                    <span className="text-yellow-500">5 RP</span>
-                                </button>
-                                <button
-                                    onClick={() => buyRebornUpgrade('expBonus')}
-                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
-                                >
-                                    <span>EXP BONUS (+{player.rebornUpgrades.expBonus}%)</span>
-                                    <span className="text-yellow-500">10 RP</span>
-                                </button>
-                                <button
-                                    onClick={() => buyRebornUpgrade('goldBonus')}
-                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
-                                >
-                                    <span>GOLD BONUS (+{player.rebornUpgrades.goldBonus}%)</span>
-                                    <span className="text-yellow-500">10 RP</span>
-                                </button>
-                                <button
-                                    onClick={() => buyRebornUpgrade('statBonus')}
-                                    className="flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors"
-                                >
-                                    <span>EXTRA STATS (+{player.rebornUpgrades.statBonus}/LV)</span>
-                                    <span className="text-yellow-500">20 RP</span>
-                                </button>
+                                {(() => {
+                                    const limits: Record<string, number> = {
+                                        atkBonus: 1000, hpBonus: 1000, expBonus: 500, goldBonus: 500, statBonus: 20, pointBonus: 200
+                                    };
+                                    const upgrades = [
+                                        { key: 'atkBonus', label: 'ATK BONUS', suffix: '%' },
+                                        { key: 'hpBonus', label: 'HP BONUS', suffix: '%' },
+                                        { key: 'expBonus', label: 'EXP BONUS', suffix: '%' },
+                                        { key: 'goldBonus', label: 'GOLD BONUS', suffix: '%' },
+                                        { key: 'statBonus', label: 'EXTRA STATS', suffix: '/LV', prefix: '+' },
+                                        { key: 'pointBonus', label: 'POINTS BONUS', suffix: '%' }
+                                    ];
+                                    const costs: Record<string, number> = {
+                                        atkBonus: 5, hpBonus: 5, expBonus: 10, goldBonus: 10, statBonus: 20, pointBonus: 30
+                                    };
+                                    return upgrades.map(upg => {
+                                        const current = (player.rebornUpgrades as any)[upg.key] || 0;
+                                        const isMax = current >= limits[upg.key];
+                                        return (
+                                            <button
+                                                key={upg.key}
+                                                onClick={() => buyRebornUpgrade(upg.key as any)}
+                                                disabled={isMax}
+                                                className={`flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors ${isMax ? 'opacity-50' : ''}`}
+                                            >
+                                                <span>{upg.label} ({upg.prefix || '+'}{current}{upg.suffix})</span>
+                                                <span className="text-yellow-500">{isMax ? 'MAX' : `${costs[upg.key]} RP`}</span>
+                                            </button>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 
@@ -302,7 +316,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                 disabled={player.level < 20}
                                 className={`w-full py-2 text-xs font-bold border ${player.level >= 20 ? 'border-purple-500 text-purple-400 hover:bg-purple-500/20' : 'border-gray-800 text-gray-700 cursor-not-allowed'}`}
                             >
-                                {player.level >= 20 ? 'EXECUTE REBORN.EXE' : 'LEVEL 20 REQUIRED'}
+                                {player.level >= 20 ? `EXECUTE REBORN.EXE (+${stats.nextRebornPoints} RP)` : 'LEVEL 20 REQUIRED'}
                             </button>
                         </div>
                     </div>
