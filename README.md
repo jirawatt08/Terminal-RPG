@@ -6,6 +6,8 @@
 
 This contains everything you need to run your app locally.
 
+Newest version: https://terminal-rpg-48cfe.web.app/
+
 View your app in AI Studio: https://ai.studio/apps/ed91f265-62c1-4f8e-9b5f-206326486326
 
 ## Run Locally
