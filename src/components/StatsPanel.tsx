@@ -102,17 +102,26 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                 <span>ATTRIBUTES</span>
                                 {player.statPoints > 0 && <span className="text-yellow-400 animate-pulse">{player.statPoints} PTS</span>}
                             </div>
-                            {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => (
-                                <div key={stat} className="flex justify-between items-center text-xs mb-1">
-                                    <span className="uppercase">
-                                        {stat}: <span className="text-white">{stats['total' + stat.charAt(0).toUpperCase() + stat.slice(1)]}</span>
-                                        <span className="text-[10px] text-gray-600 ml-1">({player.stats[stat]})</span>
-                                    </span>
-                                    {player.statPoints > 0 && (
-                                        <button onClick={() => allocateStat(stat)} className="text-[#00ff00] hover:text-white"><ArrowUpCircle size={14} /></button>
-                                    )}
-                                </div>
-                            ))}
+                            {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => {
+                                const baseValue = player.stats[stat];
+                                const totalValue = stats['total' + stat.charAt(0).toUpperCase() + stat.slice(1)];
+                                const bonusValue = totalValue - baseValue;
+                                return (
+                                    <div key={stat} className="flex justify-between items-center text-xs mb-1">
+                                        <span className="uppercase">
+                                            {stat}: <span className="text-white">{totalValue}</span>
+                                            {bonusValue > 0 ? (
+                                                <span className="text-[10px] text-gray-500 ml-1">({baseValue}+{bonusValue})</span>
+                                            ) : (
+                                                <span className="text-[10px] text-gray-600 ml-1">({baseValue})</span>
+                                            )}
+                                        </span>
+                                        {player.statPoints > 0 && (
+                                            <button onClick={() => allocateStat(stat)} className="text-[#00ff00] hover:text-white"><ArrowUpCircle size={14} /></button>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         {!reduceUi && (

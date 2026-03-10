@@ -14,7 +14,7 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
     name: 'Dragon',
     skill: { name: 'Inferno Breath', mult: 2.5, cooldown: 4, effect: { type: 'burn', duration: 3, value: 10 } },
     passive: { type: 'reflect', value: 8, description: 'Reflects 8% of damage taken.' },
-    hpMult: 8.0, atkMult: 3.5, defMult: 2.0
+    hpMult: 10.0, atkMult: 3.2, defMult: 2.0
   },
   {
     name: 'Lich',
@@ -50,6 +50,6 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
     name: 'Titan',
     skill: { name: 'Mountain Crush', mult: 3.5, cooldown: 6 },
     passive: { type: 'thorns', value: 12, description: 'Reflects 12% of damage back.' },
-    hpMult: 25.0, atkMult: 5.0, defMult: 4.5
+    hpMult: 25.0, atkMult: 1.2, defMult: 4.5
   }
 ];

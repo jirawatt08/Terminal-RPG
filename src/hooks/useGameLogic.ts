@@ -291,10 +291,12 @@ export function useGameLogic() {
 
     // Game Loop
     useEffect(() => {
-        if (gameState === 'IDLE') return;
+        if (gameState === 'IDLE' || gameState === 'SETTINGS' || gameState === 'VILLAGE') return;
 
         const interval = setInterval(() => {
-            if (document.hidden) return; // Stabilize background execution
+            if (document.hidden) return; // Pause on tab hide
+            // Also pause if the window is blurred (minimal detection)
+            // Note: We'll add window listeners separately for better coverage
             setPlayer(prevPlayer => {
                 let newPlayer = {
                     ...prevPlayer,
@@ -323,16 +325,24 @@ export function useGameLogic() {
                 let enemies = [...currentEnemies];
 
                 if (enemies.length === 0) {
+                    // Only start new combat in DASHBOARD if it's already running (not idling)
                     const isBossFight = gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT';
                     const targetStage = gameState === 'NEXT_BOSS_FIGHT' ? newPlayer.stage + 1 : newPlayer.stage;
-                    enemies = generateEnemies(newPlayer.level, targetStage, isBossFight);
-                    setCurrentEnemies(enemies);
-                    if (enemies.length > 1) {
-                        addLog(`[ENCOUNTER] Found a group of ${enemies.length} monsters!`, 'warning');
+
+                    // If we just entered dashboard from IDLE, don't start farming automatically
+                    if (gameState === 'DASHBOARD' && !isBossFight) {
+                        // We skip generating new enemies in dashboard if not already fighting/farming
+                        // This prevents random farm start when just checking records
                     } else {
-                        addLog(`[ENCOUNTER] Found ${enemies[0].name} (HP: ${enemies[0].hp})`, 'warning');
-                        if (enemies[0].passive) {
-                            addLog(`[PASSIVE] ${enemies[0].name} has [${enemies[0].passive.type.toUpperCase()}]: ${enemies[0].passive.description}`, 'info');
+                        enemies = generateEnemies(newPlayer.level, targetStage, isBossFight);
+                        setCurrentEnemies(enemies);
+                        if (enemies.length > 1) {
+                            addLog(`[ENCOUNTER] Found a group of ${enemies.length} monsters!`, 'warning');
+                        } else {
+                            addLog(`[ENCOUNTER] Found ${enemies[0].name} (HP: ${enemies[0].hp})`, 'warning');
+                            if (enemies[0].passive) {
+                                addLog(`[PASSIVE] ${enemies[0].name} has [${enemies[0].passive.type.toUpperCase()}]: ${enemies[0].passive.description}`, 'info');
+                            }
                         }
                     }
                     return newPlayer;
@@ -700,7 +710,7 @@ export function useGameLogic() {
     const stopAction = () => { if (gameState !== 'DEAD') { setGameState('IDLE'); setCurrentEnemies([]); addLog('Routine halted. Standing by.', 'system'); } };
     const enterVillage = () => { if (gameState !== 'DEAD' && gameState !== 'BOSS_FIGHT' && gameState !== 'NEXT_BOSS_FIGHT') { setGameState('VILLAGE'); setCurrentEnemies([]); addLog('Entering Village...', 'system'); } };
     const openSettings = () => { if (gameState !== 'DEAD' && gameState !== 'BOSS_FIGHT' && gameState !== 'NEXT_BOSS_FIGHT' && gameState !== 'FARMING') { setGameState('SETTINGS'); setCurrentEnemies([]); addLog('Opening Settings...', 'system'); } };
-    const openDashboard = () => { setGameState('DASHBOARD'); setCurrentEnemies([]); addLog('Opening Global Dashboard...', 'system'); };
+    const openDashboard = () => { setGameState('DASHBOARD'); addLog('Opening Global Dashboard...', 'system'); };
     const runAway = () => {
         if (gameState === 'FARMING' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'SETTINGS') {
             setGameState('IDLE');
@@ -979,7 +989,7 @@ export function useGameLogic() {
             rebornPoints: prev.rebornPoints - cost,
             rebornUpgrades: {
                 ...prev.rebornUpgrades,
-                [type]: prev.rebornUpgrades[type] + (type === 'statBonus' ? 1 : 5)
+                [type]: (prev.rebornUpgrades[type] || 0) + (type === 'statBonus' ? 1 : 5)
             }
         }));
         addLog(`Upgrade purchased: ${type}.`, 'success');

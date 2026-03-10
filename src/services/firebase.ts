@@ -219,10 +219,11 @@ export const saveRebornRecord = async (record: any) => {
   if (!isFirebaseConfigured) return;
   try {
     const compressed = compressData(record);
-    await addDoc(collection(db, 'records'), {
+    const docRef = doc(db, 'records', record.uid); // Unified record for each player using UID
+    await setDoc(docRef, {
       ...compressed,
       timestamp: serverTimestamp()
-    });
+    }, { merge: true });
   } catch (error) {
     console.error("Error saving reborn record", error);
   }
