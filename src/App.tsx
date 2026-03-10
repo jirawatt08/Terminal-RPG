@@ -3,11 +3,6 @@ import { Terminal, Shield, Sword, Coins, Heart, Zap, Package, Skull, Play, Squar
 import { Player, Enemy, GameState, LogEntry, Item, PlayerClass, Rarity } from './types';
 import { RARITY_COLORS } from './constants';
 import { generateEnemies, generateLoot, generateId } from './utils';
-import { ProgressBar } from './components/ProgressBar';
-import { Terminal, TerminalTab } from './components/Terminal';
-import { Commands } from './components/Commands';
-import { Village } from './components/Village';
-import { CharacterPanel } from './components/CharacterPanel';
 
 const CLASS_SKILLS = {
   Novice: null,
@@ -21,6 +16,8 @@ const CLASS_SKILLS = {
   Archmage: { name: 'Meteor', cost: 60, type: 'magic', mult: 5.0, guaranteedCrit: false, aoe: true, cooldown: 6 },
   Necromancer: { name: 'Soul Drain', cost: 45, type: 'magic', mult: 3.0, guaranteedCrit: false, aoe: false, cooldown: 5 }
 } as const;
+
+type TerminalTab = 'ALL' | 'FIGHT' | 'DROP' | 'SELL';
 
 export default function App() {
   const [player, setPlayer] = useState<Player>({
@@ -47,6 +44,20 @@ export default function App() {
   const [barMode, setBarMode] = useState<'bar' | 'number' | 'percent'>('bar');
   const logsEndRef = useRef<HTMLDivElement>(null);
   const queuedSkillRef = useRef(false);
+
+  const ProgressBar = ({ current, max, color }: { current: number, max: number, color: string }) => {
+    const pct = Math.min(100, Math.max(0, (current / max) * 100));
+    if (barMode === 'number') return <div className="text-right text-xs font-mono -mt-4">{current} / {max}</div>;
+    if (barMode === 'percent') return <div className="text-right text-xs font-mono -mt-4">{pct.toFixed(1)}%</div>;
+    return (
+      <>
+        <div className="text-right text-xs font-mono -mt-5 mb-1">{current} / {max}</div>
+        <div className="w-full bg-gray-900 h-2 rounded-full overflow-hidden border border-gray-800">
+          <div className={`h-full ${color} transition-all duration-300`} style={{ width: `${pct}%` }} />
+        </div>
+      </>
+    );
+  };
 
   const addLog = useCallback((text: string, type: LogEntry['type'] = 'info') => {
     setLogs(prev => [...prev.slice(-99), { id: generateId(), timestamp: new Date(), text, type }]);
@@ -623,19 +634,19 @@ export default function App() {
             <div className="flex justify-between"><span>LEVEL:</span> <span>{player.level}</span></div>
             <div>
               <div className="flex justify-between mb-1"><span>EXP:</span></div>
-              <ProgressBar current={player.exp} max={player.maxExp} color="bg-yellow-500" barMode={barMode} />
+              <ProgressBar current={player.exp} max={player.maxExp} color="bg-yellow-500" />
             </div>
             
             <div className="mt-2">
               <div className="flex justify-between mb-1">
                 <span className="flex items-center gap-1"><Heart size={14} className="text-red-500" /> HP:</span>
               </div>
-              <ProgressBar current={Math.floor(player.hp)} max={maxHp} color="bg-red-500" barMode={barMode} />
+              <ProgressBar current={Math.floor(player.hp)} max={maxHp} color="bg-red-500" />
 
               <div className="flex justify-between mb-1 mt-2">
                 <span className="flex items-center gap-1"><Zap size={14} className="text-blue-500" /> MP:</span>
               </div>
-              <ProgressBar current={Math.floor(player.mp)} max={maxMp} color="bg-blue-500" barMode={barMode} />
+              <ProgressBar current={Math.floor(player.mp)} max={maxMp} color="bg-blue-500" />
             </div>
 
             <div className="mt-4 space-y-1">
@@ -838,27 +849,257 @@ export default function App() {
       {/* Main Panel: Console Log */}
       <div className="w-full md:w-2/4 flex flex-col border border-[#00ff00]/30 bg-[#050505] rounded-sm relative shadow-[0_0_20px_rgba(0,255,0,0.05)] h-[60vh] md:h-full">
         {gameState === 'VILLAGE' ? (
-          <Village 
-            player={player}
-            villageTab={villageTab}
-            setVillageTab={setVillageTab}
-            sellItem={sellItem}
-            upgradeItem={upgradeItem}
-            setGameState={setGameState}
-            addLog={addLog}
-            setPlayer={setPlayer}
-            getEquipmentValue={getEquipmentValue}
-          />
+          <div className="flex-1 p-6 overflow-y-auto flex flex-col">
+            <div className="flex items-center gap-3 mb-4 border-b border-[#00ff00]/30 pb-4">
+              <Home className="text-yellow-500" size={24} />
+              <h2 className="text-xl font-bold text-yellow-500 tracking-wider">VILLAGE</h2>
+            </div>
+            
+            <div className="flex gap-2 mb-6">
+              <button 
+                onClick={() => setVillageTab('BLACKSMITH')}
+                className={`flex-1 py-2 text-sm font-bold border ${villageTab === 'BLACKSMITH' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
+              >
+                BLACKSMITH
+              </button>
+              <button 
+                onClick={() => setVillageTab('MERCHANT')}
+                className={`flex-1 py-2 text-sm font-bold border ${villageTab === 'MERCHANT' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
+              >
+                MERCHANT
+              </button>
+            </div>
+
+            {villageTab === 'BLACKSMITH' && (
+              <>
+                <p className="text-gray-400 mb-6 text-sm">Upgrade your items here. Upgrading increases the base value of the item by 20% per level.</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-sm text-gray-500 mb-3 font-bold">EQUIPPED ITEMS</h3>
+                    <div className="space-y-2">
+                      {Object.values(player.equipment).map(item => {
+                        const i = item as Item | null;
+                        return i && (
+                        <div key={i.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center">
+                          <div>
+                            <div style={{ color: RARITY_COLORS[i.rarity] }} className="text-sm font-bold">
+                              {i.name} {i.upgradeLevel && i.upgradeLevel > 0 ? `+${i.upgradeLevel}` : ''}
+                            </div>
+                            <div className="text-xs text-gray-500">Value: {getEquipmentValue(i)}</div>
+                          </div>
+                          <button 
+                            onClick={() => upgradeItem(i, true)}
+                            disabled={player.gold < Math.floor(i.value * 0.5 * Math.pow(1.5, i.upgradeLevel || 0))}
+                            className="px-3 py-1 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-xs"
+                          >
+                            Upgrade ({Math.floor(i.value * 0.5 * Math.pow(1.5, i.upgradeLevel || 0))}G)
+                          </button>
+                        </div>
+                      )})}
+                      {!player.equipment.weapon && !player.equipment.armor && !player.equipment.accessory && (
+                        <div className="text-xs text-gray-600 italic">No items equipped.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm text-gray-500 mb-3 font-bold">INVENTORY ITEMS</h3>
+                    <div className="space-y-2">
+                      {player.inventory.map(item => (
+                        <div key={item.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center">
+                          <div>
+                            <div style={{ color: RARITY_COLORS[item.rarity] }} className="text-sm font-bold">
+                              {item.name} {item.upgradeLevel > 0 && `+${item.upgradeLevel}`}
+                            </div>
+                            <div className="text-xs text-gray-500">Value: {getEquipmentValue(item)}</div>
+                          </div>
+                          <button 
+                            onClick={() => upgradeItem(item, false)}
+                            disabled={player.gold < Math.floor(item.value * 0.5 * Math.pow(1.5, item.upgradeLevel || 0))}
+                            className="px-3 py-1 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-xs"
+                          >
+                            Upgrade ({Math.floor(item.value * 0.5 * Math.pow(1.5, item.upgradeLevel || 0))}G)
+                          </button>
+                        </div>
+                      ))}
+                      {player.inventory.length === 0 && (
+                        <div className="text-xs text-gray-600 italic">Inventory is empty.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {villageTab === 'MERCHANT' && (
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="border border-yellow-900/50 bg-black p-4">
+                    <h3 className="text-yellow-500 font-bold mb-2">Inventory Expansion</h3>
+                    <p className="text-xs text-gray-400 mb-4">+10 Inventory Slots. Current Limit: {player.inventoryLimit}</p>
+                    <button 
+                      onClick={() => {
+                        if (player.gold >= 500) {
+                          setPlayer(p => ({ ...p, gold: p.gold - 500, inventoryLimit: p.inventoryLimit + 10 }));
+                          addLog('Purchased Inventory Expansion!', 'success');
+                        }
+                      }}
+                      disabled={player.gold < 500}
+                      className="w-full py-2 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-sm"
+                    >
+                      Buy (500G)
+                    </button>
+                  </div>
+                  
+                  <div className="border border-yellow-900/50 bg-black p-4">
+                    <h3 className="text-yellow-500 font-bold mb-2">Auto-Sell Protocol</h3>
+                    <p className="text-xs text-gray-400 mb-4">Automatically sell looted items based on rarity filter.</p>
+                    {player.autoSellUnlocked ? (
+                      <div className="text-green-500 text-sm font-bold text-center py-2">UNLOCKED</div>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          if (player.gold >= 1000) {
+                            setPlayer(p => ({ ...p, gold: p.gold - 1000, autoSellUnlocked: true }));
+                            addLog('Purchased Auto-Sell Protocol!', 'success');
+                          }
+                        }}
+                        disabled={player.gold < 1000}
+                        className="w-full py-2 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-sm"
+                      >
+                        Buy (1000G)
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {player.autoSellUnlocked && (
+                  <div className="border border-gray-800 bg-black p-4">
+                    <h3 className="text-sm font-bold mb-2 text-gray-400">AUTO-SELL FILTER</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {(['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Divine'] as const).map(r => (
+                        <button
+                          key={r}
+                          onClick={() => setPlayer(p => ({ ...p, autoSell: { ...p.autoSell, [r]: !p.autoSell[r] } }))}
+                          className={`text-xs px-3 py-1 border rounded transition-colors cursor-pointer ${
+                            player.autoSell[r] 
+                              ? 'bg-[#00ff00]/20 border-[#00ff00] text-[#00ff00]' 
+                              : 'border-gray-700 text-gray-500 hover:border-gray-500'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-sm text-gray-500 mb-3 font-bold">SELL ITEMS</h3>
+                  <div className="space-y-2">
+                    {player.inventory.map(item => (
+                      <div key={item.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center group">
+                        <div>
+                          <div style={{ color: RARITY_COLORS[item.rarity] }} className="text-sm font-bold">
+                            {item.name} {item.upgradeLevel > 0 && `+${item.upgradeLevel}`}
+                          </div>
+                          <div className="text-xs text-gray-500">Value: {getEquipmentValue(item)}</div>
+                        </div>
+                        <button 
+                          onClick={() => sellItem(item)}
+                          className="px-4 py-1 bg-yellow-500/10 hover:bg-yellow-500/30 text-yellow-500 border border-yellow-500/50 rounded text-sm"
+                        >
+                          Sell ({item.sellPrice}G)
+                        </button>
+                      </div>
+                    ))}
+                    {player.inventory.length === 0 && (
+                      <div className="text-xs text-gray-600 italic">Inventory is empty.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <>
-            <Terminal 
-              logs={logs}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              gameState={gameState}
-              currentEnemies={currentEnemies}
-              logsEndRef={logsEndRef}
-            />
+            <div className="bg-[#111] border-b border-[#00ff00]/30 p-2 flex justify-between items-center text-xs text-gray-400">
+              <div className="flex gap-2">
+                {(['ALL', 'FIGHT', 'DROP', 'SELL'] as TerminalTab[]).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-3 py-1 text-xs font-bold border ${activeTab === tab ? 'border-[#00ff00] text-[#00ff00] bg-[#00ff00]/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <span className="flex items-center gap-2">
+                STATE: 
+                <span className={`font-bold ${
+                  gameState === 'IDLE' ? 'text-gray-400' : 
+                  gameState === 'FARMING' ? 'text-green-400' : 
+                  gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' ? 'text-red-500' : 'text-red-700 animate-pulse'
+                }`}>
+                  [{gameState}]
+                </span>
+              </span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-1 text-sm font-mono scrollbar-thin scrollbar-thumb-[#00ff00]/20 scrollbar-track-transparent">
+              {filteredLogs.map((log) => (
+                <div key={log.id} className="flex gap-3 leading-relaxed">
+                  <span className="text-gray-600 shrink-0">
+                    [{log.timestamp.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}]
+                  </span>
+                  <span className={`
+                    ${log.type === 'info' ? 'text-gray-300' : ''}
+                    ${log.type === 'combat' ? 'text-gray-400' : ''}
+                    ${log.type === 'loot' ? 'text-blue-400' : ''}
+                    ${log.type === 'error' ? 'text-red-500' : ''}
+                    ${log.type === 'success' ? 'text-green-400' : ''}
+                    ${log.type === 'system' ? 'text-[#00ff00]' : ''}
+                    ${log.type === 'warning' ? 'text-yellow-400' : ''}
+                    ${log.type === 'sell' ? 'text-green-600' : ''}
+                  `}>
+                    {log.type === 'system' && '> '}
+                    {log.text}
+                  </span>
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+
+            {/* Current Enemy HUD */}
+            {currentEnemies.length > 0 && (
+              <div className="absolute top-12 right-4 flex flex-col gap-2 w-48">
+                {currentEnemies.map((enemy, idx) => (
+                  <div key={enemy.id} className={`border ${idx === 0 ? 'border-red-500' : 'border-red-900/50'} bg-black/80 backdrop-blur p-3 rounded-sm shadow-lg`}>
+                    <div className="text-xs text-red-500 font-bold mb-1 flex justify-between">
+                      <span className="truncate pr-2">{idx === 0 ? 'TARGET: ' : ''}{enemy.name}</span>
+                      {enemy.isBoss && <Skull size={14} className="shrink-0" />}
+                    </div>
+                    <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden mb-1">
+                      <div 
+                        className="bg-red-500 h-full transition-all duration-300" 
+                        style={{ width: `${Math.max(0, (enemy.hp / enemy.maxHp) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-[10px] text-gray-500">
+                        {Math.max(0, enemy.hp)} / {enemy.maxHp} HP
+                      </div>
+                      {enemy.skill && (
+                        <div className="text-[9px] text-orange-400">
+                          {enemy.skill.currentCooldown <= 0 ? 'SKILL READY' : `CD: ${enemy.skill.currentCooldown}`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -870,23 +1111,122 @@ export default function App() {
       </div>
 
       {/* Right Panel: Controls */}
-      <Commands 
-        gameState={gameState}
-        player={player}
-        maxHp={maxHp}
-        maxMp={maxMp}
-        startFarming={startFarming}
-        startBossFight={startBossFight}
-        startNextBossFight={startNextBossFight}
-        stopAction={stopAction}
-        runAway={runAway}
-        enterVillage={enterVillage}
-        showHelp={showHelp}
-        heal={heal}
-        classSkill={CLASS_SKILLS[player.playerClass]}
-        queuedSkillRef={queuedSkillRef}
-        setPlayer={setPlayer}
-      />
+      <div className="w-full md:w-1/4 flex flex-col gap-4 md:h-full">
+        <div className="border border-[#00ff00]/30 bg-[#111] p-4 rounded-sm">
+          <h2 className="text-xl font-bold mb-4 border-b border-[#00ff00]/30 pb-2 flex items-center gap-2">
+            <Zap size={20} /> COMMANDS
+          </h2>
+          
+          <div className="space-y-3">
+            <button 
+              onClick={startFarming}
+              disabled={gameState === 'FARMING' || gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT'}
+              className="w-full flex items-center justify-between p-3 border border-[#00ff00]/50 hover:bg-[#00ff00]/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+            >
+              <span>./auto_farm</span>
+              <Play size={16} />
+            </button>
+
+            <button 
+              onClick={startBossFight}
+              disabled={gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'DEAD'}
+              className="w-full flex items-center justify-between p-3 border border-orange-500/50 text-orange-400 hover:bg-orange-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+            >
+              <span>./farm_boss</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-orange-500/70">Stage {player.stage}</span>
+                <Skull size={16} />
+              </div>
+            </button>
+
+            <button 
+              onClick={startNextBossFight}
+              disabled={gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'DEAD' || player.level < player.stage * 5}
+              className="w-full flex items-center justify-between p-3 border border-red-500/50 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+            >
+              <span>./advance</span>
+              <div className="flex items-center gap-2">
+                {player.level < player.stage * 5 && <span className="text-[10px] text-red-500/70">Lv.{player.stage * 5} Req</span>}
+                <Skull size={16} />
+              </div>
+            </button>
+
+            <div className="flex gap-2">
+              <button 
+                onClick={stopAction}
+                disabled={gameState === 'IDLE' || gameState === 'DEAD'}
+                className="flex-1 flex items-center justify-between p-3 border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+              >
+                <span>^C (Stop)</span>
+                <Square size={16} />
+              </button>
+
+              <button 
+                onClick={runAway}
+                disabled={gameState === 'IDLE' || gameState === 'DEAD' || gameState === 'VILLAGE'}
+                className="flex-1 flex items-center justify-between p-3 border border-gray-500/50 text-gray-400 hover:bg-gray-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+              >
+                <span>./run</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+            <button 
+              onClick={enterVillage}
+              disabled={gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'FARMING'}
+              className="w-full flex items-center justify-between p-3 border border-blue-400/50 text-blue-400 hover:bg-blue-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+            >
+              <span>./village</span>
+              <Home size={16} />
+            </button>
+
+            <div className="pt-4 border-t border-gray-800">
+              <button 
+                onClick={showHelp}
+                className="w-full flex items-center justify-between p-3 border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 transition-colors text-left cursor-pointer mb-3"
+              >
+                <span>./help</span>
+                <Info size={16} />
+              </button>
+
+              <button 
+                onClick={heal}
+                disabled={player.gold < 50 || (player.hp >= maxHp && player.mp >= maxMp) || gameState === 'DEAD'}
+                className="w-full flex items-center justify-between p-3 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+              >
+                <span>./heal</span>
+                <span className="text-xs">-50G</span>
+              </button>
+            </div>
+
+            {player.playerClass !== 'Novice' && CLASS_SKILLS[player.playerClass] && (
+              <div className="pt-4 border-t border-gray-800 space-y-2">
+                <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
+                  <span>CLASS SKILL</span>
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={player.autoSkill} 
+                      onChange={(e) => setPlayer(p => ({ ...p, autoSkill: e.target.checked }))}
+                      className="accent-[#00ff00]"
+                    />
+                    Auto
+                  </label>
+                </div>
+                <button 
+                  onClick={() => { queuedSkillRef.current = true; }}
+                  disabled={player.mp < CLASS_SKILLS[player.playerClass]!.cost || gameState === 'DEAD' || gameState === 'IDLE'}
+                  className="w-full flex items-center justify-between p-3 border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
+                >
+                  <span>{CLASS_SKILLS[player.playerClass]!.name}</span>
+                  <span className="text-xs">-{CLASS_SKILLS[player.playerClass]!.cost} MP</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
