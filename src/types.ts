@@ -2,7 +2,7 @@ export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'My
 
 export type ItemType = 'Weapon' | 'Armor' | 'Accessory';
 
-export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze' | 'luck' | 'statusChance';
+export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze' | 'luck' | 'statusChance' | 'reduction';
 
 export type StatusEffectType = 'poison' | 'burn' | 'stun' | 'freeze';
 
@@ -30,6 +30,7 @@ export interface Item {
   effect?: { type: EffectType; value: number };
   setName?: string;
   upgradeLevel?: number;
+  locked?: boolean;
 }
 
 export type PlayerClass = 'Novice' | 'Warrior' | 'Rogue' | 'Mage' | 'Paladin' | 'Berserker' | 'Assassin' | 'Ranger' | 'Archmage' | 'Necromancer';
@@ -73,6 +74,7 @@ export interface Player {
   };
   autoSell: Record<Rarity, boolean>;
   autoSkill: boolean;
+  autoBoss: boolean;
   inventoryLimit: number;
   autoSellUnlocked: boolean;
   skillCooldown: number;

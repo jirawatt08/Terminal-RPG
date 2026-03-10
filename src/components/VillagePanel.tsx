@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home } from 'lucide-react';
+import { Home, Lock, Unlock } from 'lucide-react';
 import { Player, Item, Rarity } from '../types';
 import { RARITY_COLORS } from '../constants';
 
@@ -10,9 +10,10 @@ interface VillagePanelProps {
     getEquipmentValue: (item: Item | null) => number;
     upgradeItem: (item: Item, isEquipped: boolean) => void;
     sellItem: (item: Item) => void;
+    toggleItemLock: (item: Item) => void;
 }
 
-export const VillagePanel: React.FC<VillagePanelProps> = ({ player, setPlayer, addLog, getEquipmentValue, upgradeItem, sellItem }) => {
+export const VillagePanel: React.FC<VillagePanelProps> = ({ player, setPlayer, addLog, getEquipmentValue, upgradeItem, sellItem, toggleItemLock }) => {
     const [villageTab, setVillageTab] = useState<'BLACKSMITH' | 'MERCHANT'>('BLACKSMITH');
 
     return (
@@ -150,8 +151,8 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({ player, setPlayer, a
                                         key={r}
                                         onClick={() => setPlayer(p => ({ ...p, autoSell: { ...p.autoSell, [r]: !p.autoSell[r] } }))}
                                         className={`text-xs px-3 py-1 border rounded transition-colors cursor-pointer ${player.autoSell[r]
-                                                ? 'bg-[#00ff00]/20 border-[#00ff00] text-[#00ff00]'
-                                                : 'border-gray-700 text-gray-500 hover:border-gray-500'
+                                            ? 'bg-[#00ff00]/20 border-[#00ff00] text-[#00ff00]'
+                                            : 'border-gray-700 text-gray-500 hover:border-gray-500'
                                             }`}
                                     >
                                         {r}
@@ -167,17 +168,27 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({ player, setPlayer, a
                             {player.inventory.map(item => (
                                 <div key={item.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center group">
                                     <div>
-                                        <div style={{ color: RARITY_COLORS[item.rarity].replace('text-', '') }} className={`text-sm font-bold ${RARITY_COLORS[item.rarity]}`}>
+                                        <div style={{ color: RARITY_COLORS[item.rarity].replace('text-', '') }} className={`text-sm font-bold ${RARITY_COLORS[item.rarity]} flex items-center gap-2`}>
                                             {item.name} {item.upgradeLevel && item.upgradeLevel > 0 ? `+${item.upgradeLevel}` : ''}
+                                            {item.locked && <Lock size={12} className="text-red-500" />}
                                         </div>
                                         <div className="text-xs text-gray-500">Value: {getEquipmentValue(item)}</div>
                                     </div>
-                                    <button
-                                        onClick={() => sellItem(item)}
-                                        className="px-4 py-1 bg-yellow-500/10 hover:bg-yellow-500/30 text-yellow-500 border border-yellow-500/50 rounded text-sm cursor-pointer"
-                                    >
-                                        Sell ({item.sellPrice}G)
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => toggleItemLock(item)}
+                                            className={`p-1 border ${item.locked ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-gray-700 text-gray-500 hover:border-[#00ff00]'}`}
+                                        >
+                                            {item.locked ? <Lock size={14} /> : <Unlock size={14} />}
+                                        </button>
+                                        <button
+                                            onClick={() => sellItem(item)}
+                                            disabled={item.locked}
+                                            className="px-4 py-1 bg-yellow-500/10 hover:bg-yellow-500/30 text-yellow-500 border border-yellow-500/50 rounded text-sm cursor-pointer disabled:opacity-50"
+                                        >
+                                            Sell ({item.sellPrice}G)
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                             {player.inventory.length === 0 && (

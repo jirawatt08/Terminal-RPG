@@ -21,9 +21,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen md:h-screen bg-[#0a0a0a] text-[#00ff00] font-mono p-4 flex flex-col md:flex-row gap-4 selection:bg-[#00ff00] selection:text-black md:overflow-hidden">
-      
+
       {/* Modals */}
-      <LoginModal 
+      <LoginModal
         isOpen={showLoginModal}
         onClose={() => actions.setShowLoginModal(false)}
         onLogin={actions.login}
@@ -44,6 +44,7 @@ export default function App() {
           player={player}
           equipItem={actions.equipItem}
           getEquipmentValue={stats.getEquipmentValue}
+          toggleItemLock={actions.toggleItemLock}
         />
       </div>
 
@@ -57,6 +58,7 @@ export default function App() {
             getEquipmentValue={stats.getEquipmentValue}
             upgradeItem={actions.upgradeItem}
             sellItem={actions.sellItem}
+            toggleItemLock={actions.toggleItemLock}
           />
         ) : gameState === 'SETTINGS' ? (
           <SettingsPanel

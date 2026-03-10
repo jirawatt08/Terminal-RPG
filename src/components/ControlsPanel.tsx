@@ -26,7 +26,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                     </h2>
                     {player.uid ? (
                         <div className="relative">
-                            <button 
+                            <button
                                 onClick={() => setShowUserMenu(!showUserMenu)}
                                 className="flex items-center gap-2 hover:bg-[#00ff00]/10 p-1 rounded transition-colors"
                             >
@@ -44,7 +44,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                                         <div className="px-2 py-1 border-b border-[#00ff00]/10 mb-1 text-gray-500">
                                             LAST SAVE: {lastSaveTime ? lastSaveTime.toLocaleTimeString() : 'NEVER'}
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 actions.logout();
                                                 setShowUserMenu(false);
@@ -53,7 +53,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                                         >
                                             <LogOut size={12} /> LOGOUT
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 actions.logout();
                                                 actions.setShowLoginModal(true);
@@ -68,8 +68,8 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                             )}
                         </div>
                     ) : (
-                        <button 
-                            onClick={() => actions.setShowLoginModal(true)} 
+                        <button
+                            onClick={() => actions.setShowLoginModal(true)}
                             className="text-gray-500 hover:text-[#00ff00] flex items-center gap-1 text-[10px] transition-colors"
                         >
                             <LogIn size={14} /> LOGIN
@@ -98,6 +98,19 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                             <Skull size={16} />
                         </div>
                     </button>
+
+                    <div className="flex justify-between items-center px-1 mt-[-8px] mb-2">
+                        <span className="text-[10px] text-orange-500/70 uppercase">Auto-Boss Protocol</span>
+                        <label className="flex items-center gap-1 cursor-pointer text-[10px] text-gray-500 hover:text-orange-400 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={player.autoBoss}
+                                onChange={(e) => setPlayer(p => ({ ...p, autoBoss: e.target.checked }))}
+                                className="accent-orange-500"
+                            />
+                            ENABLE
+                        </label>
+                    </div>
 
                     <button
                         onClick={actions.startNextBossFight}

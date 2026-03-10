@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package } from 'lucide-react';
+import { Package, Lock, Unlock } from 'lucide-react';
 import { Player, Item, Rarity } from '../types';
 import { RARITY_COLORS } from '../constants';
 
@@ -7,11 +7,12 @@ interface InventoryPanelProps {
     player: Player;
     equipItem: (item: Item) => void;
     getEquipmentValue: (item: Item | null) => number;
+    toggleItemLock: (item: Item) => void;
 }
 
 const RARITY_WEIGHT: Record<Rarity, number> = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythic: 6, Divine: 7 };
 
-export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipItem, getEquipmentValue }) => {
+export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipItem, getEquipmentValue, toggleItemLock }) => {
     const [inventorySort, setInventorySort] = useState<'STAT' | 'RARITY' | 'NAME'>('STAT');
 
     const sortedInventory = [...player.inventory].sort((a, b) => {
@@ -69,10 +70,20 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipIte
                                 </span>
                                 <span className="text-gray-400">+{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}</span>
                             </div>
-                            {item.effect && <div className="text-[10px] text-blue-400 mb-1">+{item.effect.value}% {item.effect.type}</div>}
+                            <div className="flex justify-between items-center mb-1">
+                                {item.effect ? <div className="text-[10px] text-blue-400">+{item.effect.value}% {item.effect.type}</div> : <div></div>}
+                                {item.locked && <Lock size={10} className="text-red-500" />}
+                            </div>
                             <div className="flex justify-between items-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <span className="text-yellow-500">{item.sellPrice}G</span>
                                 <div className="flex gap-2">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); toggleItemLock(item); }}
+                                        className={`p-1 border ${item.locked ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-gray-700 text-gray-500 hover:border-[#00ff00]/30'} rounded`}
+                                        title={item.locked ? 'Unlock' : 'Lock'}
+                                    >
+                                        {item.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                                    </button>
                                     <button onClick={() => equipItem(item)} className="px-2 py-1 bg-[#00ff00]/10 hover:bg-[#00ff00]/30 text-[#00ff00] rounded cursor-pointer">Equip</button>
                                 </div>
                             </div>

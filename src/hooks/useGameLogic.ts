@@ -14,6 +14,7 @@ export function useGameLogic() {
         equipment: { weapon: null, armor: null, accessory: null },
         autoSell: { Common: false, Uncommon: false, Rare: false, Epic: false, Legendary: false, Mythic: false, Divine: false },
         autoSkill: false,
+        autoBoss: false,
         inventoryLimit: 20,
         autoSellUnlocked: false,
         skillCooldown: 0,
@@ -200,7 +201,7 @@ export function useGameLogic() {
         return Math.floor(item.value * (1 + (item.upgradeLevel || 0) * 0.2));
     };
 
-    const getEffectTotal = (type: 'lifesteal' | 'crit' | 'dodge' | 'luck' | 'statusChance') => {
+    const getEffectTotal = (type: 'lifesteal' | 'crit' | 'dodge' | 'luck' | 'statusChance' | 'reduction') => {
         let total = 0;
         Object.values(player.equipment).forEach(item => {
             const i = item as Item | null;
@@ -222,6 +223,7 @@ export function useGameLogic() {
         critChance = 100;
     }
     const dodgeChance = getEffectTotal('dodge') + bonusDodgeChance + setBonusDodge;
+    const reduction = getEffectTotal('reduction');
     const lifesteal = getEffectTotal('lifesteal') + (player.playerClass === 'Berserker' ? 10 : player.playerClass === 'Necromancer' ? 15 : 0) + setBonusLifesteal;
 
     // Game Loop
@@ -468,8 +470,13 @@ export function useGameLogic() {
                         addLog(`Next Boss defeated! Advancing to Stage ${newPlayer.stage}. Returning to IDLE mode.`, 'system');
                         setGameState('IDLE');
                     } else if (gameState === 'BOSS_FIGHT') {
-                        addLog(`Current Boss defeated! Returning to IDLE mode.`, 'system');
-                        setGameState('IDLE');
+                        addLog(`Current Boss defeated!`, 'system');
+                        if (newPlayer.autoBoss) {
+                            addLog(`[AUTO-BOSS] Searching for next target...`, 'system');
+                        } else {
+                            addLog(`Returning to IDLE mode.`, 'system');
+                            setGameState('IDLE');
+                        }
                     }
                     return newPlayer;
                 }
@@ -505,7 +512,7 @@ export function useGameLogic() {
                         let damageToPlayer = 0;
                         if (enemy.skill && enemy.skill.currentCooldown <= 0) {
                             damageToPlayer = Math.max(1, Math.floor(enemy.attack * enemy.skill.mult) - totalDefense + Math.floor(Math.random() * 3));
-                            
+
                             // Enemy Berserk Passive
                             if (enemy.passive?.type === 'berserk' && enemy.hp < enemy.maxHp * 0.3) {
                                 damageToPlayer = Math.floor(damageToPlayer * (1 + enemy.passive.value / 100));
@@ -531,7 +538,7 @@ export function useGameLogic() {
                             }
                         } else {
                             damageToPlayer = Math.max(1, enemy.attack - totalDefense + Math.floor(Math.random() * 3));
-                            
+
                             // Enemy Berserk Passive
                             if (enemy.passive?.type === 'berserk' && enemy.hp < enemy.maxHp * 0.3) {
                                 damageToPlayer = Math.floor(damageToPlayer * (1 + enemy.passive.value / 100));
@@ -540,6 +547,9 @@ export function useGameLogic() {
 
                             if (enemy.skill) enemy.skill.currentCooldown -= 1;
                             addLog(`< ${enemy.name} attacked you for ${damageToPlayer} dmg.`, 'error');
+                        }
+                        if (reduction > 0) {
+                            damageToPlayer = Math.floor(damageToPlayer * (1 - reduction / 100));
                         }
                         newPlayer.hp -= damageToPlayer;
 
@@ -645,11 +655,37 @@ export function useGameLogic() {
     };
 
     const sellItem = (item: Item) => {
+        if (item.locked) {
+            addLog(`Cannot sell ${item.name}. Item is locked!`, 'warning');
+            return;
+        }
         setPlayer(prev => {
             const newPlayer = { ...prev, inventory: [...prev.inventory] };
             newPlayer.inventory = newPlayer.inventory.filter(i => i.id !== item.id);
             newPlayer.gold += item.sellPrice;
             addLog(`Sold ${item.name} for ${item.sellPrice} Gold.`, 'sell');
+            return newPlayer;
+        });
+    };
+
+    const toggleItemLock = (item: Item) => {
+        setPlayer(prev => {
+            const newPlayer = {
+                ...prev,
+                inventory: [...prev.inventory],
+                equipment: { ...prev.equipment }
+            };
+            const invIdx = newPlayer.inventory.findIndex(i => i.id === item.id);
+            if (invIdx !== -1) {
+                newPlayer.inventory[invIdx] = { ...newPlayer.inventory[invIdx], locked: !newPlayer.inventory[invIdx].locked };
+            } else {
+                Object.keys(newPlayer.equipment).forEach(slot => {
+                    const eqItem = newPlayer.equipment[slot as keyof typeof newPlayer.equipment];
+                    if (eqItem?.id === item.id) {
+                        newPlayer.equipment[slot as keyof typeof newPlayer.equipment] = { ...eqItem, locked: !eqItem.locked };
+                    }
+                });
+            }
             return newPlayer;
         });
     };
@@ -719,7 +755,7 @@ export function useGameLogic() {
         }
 
         const pointsEarned = Math.floor(player.level / 10) + (player.stage);
-        
+
         if (player.uid) {
             saveRebornRecord({
                 uid: player.uid,
@@ -749,7 +785,9 @@ export function useGameLogic() {
                 rebornPoints: player.rebornPoints + pointsEarned,
                 rebornCount: player.rebornCount + 1,
                 statusEffects: [],
-                skillCooldown: 0
+                autoSkill: false,
+                autoBoss: false,
+                inventoryLimit: player.inventoryLimit,
             });
         }
 
@@ -772,7 +810,9 @@ export function useGameLogic() {
             rebornPoints: prev.rebornPoints + pointsEarned,
             rebornCount: prev.rebornCount + 1,
             statusEffects: [],
-            skillCooldown: 0
+            skillCooldown: 0,
+            autoSkill: false,
+            autoBoss: false
         }));
 
         setGameState('IDLE');
@@ -839,9 +879,10 @@ export function useGameLogic() {
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,
-            enterVillage, openSettings, openDashboard, runAway, showHelp, equipItem, sellItem, upgradeItem,
-            heal, allocateStat, chooseClass, reborn, buyRebornUpgrade, login, logout,
-            setShowLoginModal, manualSave
+            enterVillage, openSettings, openDashboard, runAway, showHelp,
+            equipItem, sellItem, upgradeItem, toggleItemLock, heal, allocateStat,
+            chooseClass, reborn, buyRebornUpgrade, manualSave, setShowLoginModal,
+            login, logout
         },
         showLoginModal,
         isLoggingIn,
