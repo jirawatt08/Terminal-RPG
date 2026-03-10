@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Terminal, Heart, Zap, Sword, Shield, Coins, ArrowUpCircle } from 'lucide-react';
 import { Player, PlayerClass } from '../types';
-import { RARITY_COLORS } from '../constants';
+import { RARITY_COLORS, SET_BONUSES } from '../constants';
 import { ProgressBar } from './ProgressBar';
 
 interface StatsPanelProps {
@@ -79,15 +79,15 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                 <div className="mt-4 space-y-1">
                     <div className="flex justify-between text-gray-400">
                         <span className="flex items-center gap-1"><Sword size={14} /> ATK:</span>
-                        <span>{stats.totalAttack}</span>
+                        <span>{Math.floor(stats.totalAttack)}</span>
                     </div>
                     <div className="flex justify-between text-gray-400">
                         <span className="flex items-center gap-1"><Shield size={14} /> DEF:</span>
-                        <span>{stats.totalDefense}</span>
+                        <span>{Math.floor(stats.totalDefense)}</span>
                     </div>
                     <div className="flex justify-between text-yellow-400">
                         <span className="flex items-center gap-1"><Coins size={14} /> GOLD:</span>
-                        <span>{player.gold}</span>
+                        <span>{Math.floor(player.gold)}</span>
                     </div>
                 </div>
 
@@ -195,8 +195,16 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                                 );
                             })}
                             {stats.activeSets.length > 0 && (
-                                <div className="text-[10px] text-purple-400 mt-2">
-                                    Active Sets: {stats.activeSets.join(', ')}
+                                <div className="mt-4 p-2 bg-purple-900/10 border border-purple-500/30">
+                                    <div className="text-[10px] font-bold text-purple-400 uppercase mb-1">Active Set Bonuses</div>
+                                    <div className="space-y-1">
+                                        {stats.activeSets.map(setName => (
+                                            <div key={setName} className="flex justify-between items-center text-[10px]">
+                                                <span className="text-purple-300 font-bold">{setName.toUpperCase()}</span>
+                                                <span className="text-gray-500">{SET_BONUSES[setName] || 'Active'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -206,19 +214,19 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateS
                 {sysStatusTab === 'CHARACTER' && (
                     <div className="mt-4 pt-4 border-t border-gray-800">
                         <div className="space-y-1 text-xs text-gray-400">
-                            <div className="flex justify-between"><span>Max HP:</span> <span className="text-red-400">{stats.maxHp}</span></div>
-                            <div className="flex justify-between"><span>Max MP:</span> <span className="text-blue-400">{stats.maxMp}</span></div>
-                            <div className="flex justify-between"><span>Attack:</span> <span className="text-gray-300">{stats.totalAttack}</span></div>
-                            <div className="flex justify-between"><span>Defense:</span> <span className="text-gray-300">{stats.totalDefense}</span></div>
+                            <div className="flex justify-between"><span>Max HP:</span> <span className="text-red-400">{Math.floor(stats.maxHp)}</span></div>
+                            <div className="flex justify-between"><span>Max MP:</span> <span className="text-blue-400">{Math.floor(stats.maxMp)}</span></div>
+                            <div className="flex justify-between"><span>Attack:</span> <span className="text-gray-300">{Math.floor(stats.totalAttack)}</span></div>
+                            <div className="flex justify-between"><span>Defense:</span> <span className="text-gray-300">{Math.floor(stats.totalDefense)}</span></div>
                             {!reduceUi && (
                                 <>
-                                    <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{stats.totalMagicAttack}</span></div>
-                                    <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{stats.critChance}%</span></div>
+                                    <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{Math.floor(stats.totalMagicAttack)}</span></div>
+                                    <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{Math.floor(stats.critChance)}%</span></div>
                                     <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(stats.finalCritDmg * 100)}%</span></div>
-                                    <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{stats.dodgeChance}%</span></div>
-                                    <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{stats.lifesteal}%</span></div>
-                                    <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{stats.totalLuck}</span></div>
-                                    <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{stats.totalStatusChance}/10</span></div>
+                                    <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{Math.floor(stats.dodgeChance)}%</span></div>
+                                    <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{Math.floor(stats.lifesteal)}%</span></div>
+                                    <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{Math.floor(stats.totalLuck)}</span></div>
+                                    <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{Math.floor(stats.totalStatusChance)}/10</span></div>
                                     <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{Math.floor((stats.setBonusGoldPct + (stats.potionGoldBonus / 100)) * 100)}%</span></div>
                                     <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{Math.floor((stats.setBonusExpPct + (stats.potionExpBonus / 100)) * 100)}%</span></div>
                                     {player.potions.length > 0 && (

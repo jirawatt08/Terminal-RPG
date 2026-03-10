@@ -338,8 +338,8 @@ export const VillagePanel: React.FC<VillagePanelProps> = ({
                                             ></div>
                                         </div>
                                         <div className="flex justify-between mt-1 text-[10px] text-gray-600">
-                                            <span>Progress: {q.requirement.current} / {q.requirement.target}</span>
-                                            <span className="text-yellow-600">Reward: {q.reward.exp} EXP | {q.reward.gold} Gold</span>
+                                            <span>Progress: {Math.floor(q.requirement.current)} / {Math.floor(q.requirement.target)}</span>
+                                            <span className="text-yellow-600">Reward: {Math.floor(q.reward.exp)} EXP | {Math.floor(q.reward.gold)} Gold</span>
                                         </div>
                                     </div>
                                     {q.completed && (

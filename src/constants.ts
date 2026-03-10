@@ -17,6 +17,20 @@ export const ACCESSORY_NAMES = ['Ring', 'Amulet', 'Pendant', 'Charm', 'Bracelet'
 export const ADJECTIVES = ['Rusty', 'Iron', 'Steel', 'Mithril', 'Adamantite', 'Demonic', 'Divine', 'Cursed', 'Blessed', 'Ancient', 'Void'];
 export const SET_NAMES = ['Phantom', 'Berserker', 'Guardian', 'Sage', 'Shadow', 'Celestial', 'Iron', 'Merchant', 'Explorer', 'Vampire', 'Assassin'];
 
+export const SET_BONUSES: Record<string, string> = {
+  Berserker: "+20% Attack",
+  Iron: "+20% Defense",
+  Guardian: "+20% HP & Defense",
+  Sage: "+20% MP & Magic Power",
+  Celestial: "+10% All Stats",
+  Merchant: "+50% Gold Gain",
+  Explorer: "+50% EXP Gain",
+  Phantom: "+15% Dodge Rate",
+  Shadow: "+10% Crit & Dodge Rate",
+  Assassin: "+15% Crit Rate",
+  Vampire: "+15% Lifesteal"
+};
+
 export const CLASS_SKILLS = {
   Novice: null,
   Warrior: { name: 'Heavy Strike', cost: 20, type: 'physical', mult: 2.0, guaranteedCrit: false, aoe: false, cooldown: 3 },

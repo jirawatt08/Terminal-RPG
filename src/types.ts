@@ -121,9 +121,10 @@ export interface Player {
     statBonus: number; // Extra stat points per level
   };
   potions: PotionEffect[];
-  potionMaxBuyUpgrade: number; // Max 20 upgrades (+5 per upgrade)
-  potionQualityUpgrade: number; // Max 8 upgrades (+25% per upgrade)
+  potionMaxBuyUpgrade: number;
+  potionQualityUpgrade: number;
   quests: Quest[];
+  rebornHistory: any[]; // Local history of past reburns
   monstersKilled: number;
   bossesKilled: number;
 }

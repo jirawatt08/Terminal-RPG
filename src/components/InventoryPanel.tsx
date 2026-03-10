@@ -68,14 +68,14 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipIte
                                     <span className="text-gray-500 mr-1">[{item.type.substring(0, 3).toUpperCase()}]</span>
                                     {item.name} {item.upgradeLevel && item.upgradeLevel > 0 ? `+${item.upgradeLevel}` : ''}
                                 </span>
-                                <span className="text-gray-400">+{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}</span>
+                                <span className="text-gray-400">+{Math.floor(item.value)} {item.type === 'Weapon' ? 'ATK' : 'DEF'}</span>
                             </div>
                             <div className="flex justify-between items-center mb-1">
-                                {item.effect ? <div className="text-[10px] text-blue-400">+{item.effect.value}% {item.effect.type}</div> : <div></div>}
+                                {item.effect ? <div className="text-[10px] text-blue-400">+{Math.floor(item.effect.value)}% {item.effect.type}</div> : <div></div>}
                                 {item.locked && <Lock size={10} className="text-red-500" />}
                             </div>
                             <div className="flex justify-between items-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-yellow-500">{item.sellPrice}G</span>
+                                <span className="text-yellow-500">{Math.floor(item.sellPrice)}G</span>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); toggleItemLock(item); }}

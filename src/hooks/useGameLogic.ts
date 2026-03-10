@@ -33,6 +33,7 @@ export function useGameLogic() {
         potionMaxBuyUpgrade: 0,
         potionQualityUpgrade: 0,
         quests: [],
+        rebornHistory: [],
         monstersKilled: 0,
         bossesKilled: 0
     });
@@ -785,18 +786,22 @@ export function useGameLogic() {
 
         const pointsEarned = Math.floor(player.level / 10) + (player.stage);
 
+        const record = {
+            id: generateId(),
+            uid: player.uid,
+            displayName: player.displayName || 'Me',
+            photoURL: player.photoURL,
+            level: player.level,
+            stage: player.stage,
+            gold: player.gold,
+            rebornCount: player.rebornCount + 1,
+            monstersKilled: player.monstersKilled,
+            bossesKilled: player.bossesKilled,
+            timestamp: new Date()
+        };
+
         if (player.uid) {
-            saveRebornRecord({
-                uid: player.uid,
-                displayName: player.displayName,
-                photoURL: player.photoURL,
-                level: player.level,
-                stage: player.stage,
-                gold: player.gold,
-                rebornCount: player.rebornCount + 1,
-                monstersKilled: player.monstersKilled,
-                bossesKilled: player.bossesKilled
-            });
+            saveRebornRecord(record);
             savePlayerData(player.uid, {
                 ...player,
                 level: 1,
@@ -850,6 +855,7 @@ export function useGameLogic() {
             potionMaxBuyUpgrade: 0,
             potionQualityUpgrade: 0,
             quests: [],
+            rebornHistory: [...prev.rebornHistory, record].slice(-10), // Keep last 10 local reburns
             monstersKilled: 0,
             bossesKilled: 0
         }));
@@ -1051,7 +1057,8 @@ export function useGameLogic() {
             setBonusGoldPct, setBonusExpPct,
             maxHp, maxMp, totalAttack, totalDefense, totalMagicAttack, totalLuck, totalStatusChance,
             critChance, finalCritDmg, dodgeChance, lifesteal, getEquipmentValue,
-            potionExpBonus, potionGoldBonus, potionLuckBonus
+            potionExpBonus, potionGoldBonus, potionLuckBonus,
+            rebornHistory: player.rebornHistory,
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,

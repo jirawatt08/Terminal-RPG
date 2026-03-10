@@ -75,6 +75,7 @@ export default function App() {
         ) : gameState === 'DASHBOARD' ? (
           <DashboardPanel
             onClose={actions.stopAction}
+            localRecords={stats.rebornHistory}
           />
         ) : (
           <ConsolePanel

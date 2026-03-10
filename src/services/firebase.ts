@@ -106,7 +106,8 @@ const FIELD_MAP: Record<string, string> = {
   rebornPoints: 'rp', rebornCount: 'rc', rebornUpgrades: 'ru',
   displayName: 'dn', photoURL: 'pu', uid: 'u',
   monstersKilled: 'mk', bossesKilled: 'bk',
-  potionMaxBuyUpgrade: 'pmbu', potionQualityUpgrade: 'pqu'
+  potionMaxBuyUpgrade: 'pmbu', potionQualityUpgrade: 'pqu',
+  rebornHistory: 'rh'
 };
 
 const ITEM_MAP: Record<string, string> = {
@@ -123,7 +124,8 @@ const compressData = (data: any): any => {
   for (const [key, value] of Object.entries(data)) {
     if (value === undefined) continue;
     const shortKey = FIELD_MAP[key] || ITEM_MAP[key] || key;
-    compressed[shortKey] = (key === 'inventory' || key === 'equipment' || typeof value === 'object')
+    // Only recurse if it's a plain object or array
+    compressed[shortKey] = (value && typeof value === 'object' && (value.constructor === Object || Array.isArray(value)))
       ? compressData(value)
       : value;
   }
@@ -139,10 +141,9 @@ const decompressData = (data: any): any => {
   const reverseItemMap = Object.fromEntries(Object.entries(ITEM_MAP).map(([k, v]) => [v, k]));
 
   for (const [key, value] of Object.entries(data)) {
-    // We need to be careful here because some short keys might overlap if not unique across maps
-    // But in our case they are unique enough or we can prioritize
     const longKey = reverseFieldMap[key] || reverseItemMap[key] || key;
-    decompressed[longKey] = (longKey === 'inventory' || longKey === 'equipment' || typeof value === 'object')
+    // Only recurse if it's a plain object or array
+    decompressed[longKey] = (value && typeof value === 'object' && (value.constructor === Object || Array.isArray(value)))
       ? decompressData(value)
       : value;
   }

@@ -115,8 +115,8 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs, gameState, cur
                             <div className="flex justify-between items-center">
                                 <div className="text-[10px] text-gray-500">
                                     {player.settings.barMode === 'percent'
-                                        ? `${Math.max(0, (enemy.hp / enemy.maxHp) * 100).toFixed(1)}% HP`
-                                        : `${Math.max(0, enemy.hp)} / ${enemy.maxHp} HP`
+                                        ? `${Math.floor(Math.max(0, (enemy.hp / enemy.maxHp) * 100))}% HP`
+                                        : `${Math.floor(Math.max(0, enemy.hp))} / ${Math.floor(enemy.maxHp)} HP`
                                     }
                                 </div>
                                 {enemy.skill && (
