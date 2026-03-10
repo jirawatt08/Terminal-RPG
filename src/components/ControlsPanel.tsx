@@ -10,27 +10,68 @@ interface ControlsPanelProps {
     stats: any;
     actions: any;
     queuedSkillRef: React.MutableRefObject<boolean>;
+    isLoggingIn: boolean;
+    lastSaveTime: Date | null;
 }
 
-export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer, gameState, stats, actions, queuedSkillRef }) => {
+export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer, gameState, stats, actions, queuedSkillRef, isLoggingIn, lastSaveTime }) => {
+    const [showUserMenu, setShowUserMenu] = React.useState(false);
+
     return (
         <div className="w-full md:w-1/4 flex flex-col gap-4 md:h-full">
             <div className="border border-[#00ff00]/30 bg-[#111] p-4 rounded-sm">
-                <div className="mb-4 border-b border-[#00ff00]/30 pb-2 flex items-center justify-between">
+                <div className="mb-4 border-b border-[#00ff00]/30 pb-2 flex items-center justify-between relative">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <Zap size={20} /> COMMANDS
                     </h2>
                     {player.uid ? (
-                        <div className="flex items-center gap-2">
-                            {player.photoURL ? (
-                                <img src={player.photoURL} alt="" className="w-6 h-6 rounded-full border border-[#00ff00]/30" referrerPolicy="no-referrer" />
-                            ) : (
-                                <User size={16} className="text-gray-500" />
+                        <div className="relative">
+                            <button 
+                                onClick={() => setShowUserMenu(!showUserMenu)}
+                                className="flex items-center gap-2 hover:bg-[#00ff00]/10 p-1 rounded transition-colors"
+                            >
+                                {player.photoURL ? (
+                                    <img src={player.photoURL} alt="" className="w-6 h-6 rounded-full border border-[#00ff00]/30" referrerPolicy="no-referrer" />
+                                ) : (
+                                    <User size={16} className="text-[#00ff00]" />
+                                )}
+                            </button>
+
+                            {showUserMenu && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
+                                    <div className="absolute right-0 mt-2 w-48 bg-[#0a0a0a] border border-[#00ff00]/30 rounded shadow-xl z-20 p-2 text-[10px]">
+                                        <div className="px-2 py-1 border-b border-[#00ff00]/10 mb-1 text-gray-500">
+                                            LAST SAVE: {lastSaveTime ? lastSaveTime.toLocaleTimeString() : 'NEVER'}
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                actions.logout();
+                                                setShowUserMenu(false);
+                                            }}
+                                            className="w-full text-left px-2 py-2 hover:bg-red-500/10 text-red-400 flex items-center gap-2 transition-colors"
+                                        >
+                                            <LogOut size={12} /> LOGOUT
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                actions.logout();
+                                                actions.setShowLoginModal(true);
+                                                setShowUserMenu(false);
+                                            }}
+                                            className="w-full text-left px-2 py-2 hover:bg-[#00ff00]/10 text-[#00ff00] flex items-center gap-2 transition-colors"
+                                        >
+                                            <User size={12} /> CHANGE ACCOUNT
+                                        </button>
+                                    </div>
+                                </>
                             )}
-                            <button onClick={actions.logout} className="text-gray-500 hover:text-red-400"><LogOut size={16} /></button>
                         </div>
                     ) : (
-                        <button onClick={actions.login} className="text-gray-500 hover:text-[#00ff00] flex items-center gap-1 text-[10px]">
+                        <button 
+                            onClick={() => actions.setShowLoginModal(true)} 
+                            className="text-gray-500 hover:text-[#00ff00] flex items-center gap-1 text-[10px] transition-colors"
+                        >
                             <LogIn size={14} /> LOGIN
                         </button>
                     )}

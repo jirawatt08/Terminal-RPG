@@ -7,6 +7,7 @@ import { VillagePanel } from './components/VillagePanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ControlsPanel } from './components/ControlsPanel';
 import { DashboardPanel } from './components/DashboardPanel';
+import { LoginModal } from './components/LoginModal';
 
 export default function App() {
   const game = useGameLogic();
@@ -14,11 +15,20 @@ export default function App() {
   const {
     player, setPlayer,
     gameState, currentEnemies,
-    logs, stats, actions, refs
+    logs, stats, actions, refs,
+    showLoginModal, isLoggingIn, lastSaveTime
   } = game;
 
   return (
     <div className="min-h-screen md:h-screen bg-[#0a0a0a] text-[#00ff00] font-mono p-4 flex flex-col md:flex-row gap-4 selection:bg-[#00ff00] selection:text-black md:overflow-hidden">
+      
+      {/* Modals */}
+      <LoginModal 
+        isOpen={showLoginModal}
+        onClose={() => actions.setShowLoginModal(false)}
+        onLogin={actions.login}
+        isLoggingIn={isLoggingIn}
+      />
 
       {/* Left Panel: Stats & Equipment */}
       <div className="w-full md:w-1/4 flex flex-col gap-4 md:h-full overflow-y-auto scrollbar-thin scrollbar-thumb-[#00ff00]/20 scrollbar-track-transparent pr-2 flex-shrink-0">
@@ -53,6 +63,7 @@ export default function App() {
             player={player}
             setPlayer={setPlayer}
             closeSettings={actions.stopAction}
+            manualSave={actions.manualSave}
           />
         ) : gameState === 'DASHBOARD' ? (
           <DashboardPanel
@@ -77,6 +88,8 @@ export default function App() {
         stats={stats}
         actions={actions}
         queuedSkillRef={refs.queuedSkillRef}
+        isLoggingIn={isLoggingIn}
+        lastSaveTime={lastSaveTime}
       />
     </div>
   );

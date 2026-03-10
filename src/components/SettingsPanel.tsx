@@ -7,9 +7,10 @@ interface SettingsPanelProps {
     player: Player;
     setPlayer: React.Dispatch<React.SetStateAction<Player>>;
     closeSettings: () => void;
+    manualSave: () => void;
 }
 
-export const SettingsPanel: React.FC<SettingsPanelProps> = ({ player, setPlayer, closeSettings }) => {
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ player, setPlayer, closeSettings, manualSave }) => {
     const toggleReduceUi = () => {
         setPlayer(prev => ({
             ...prev,
@@ -101,10 +102,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ player, setPlayer,
                                 <div className="text-xs text-gray-500">Force save your current progress to the cloud.</div>
                             </div>
                             <button
-                                onClick={() => {
-                                    savePlayerData(player.uid!, player);
-                                    alert('DATA_SYNCED_SUCCESSFULLY');
-                                }}
+                                onClick={manualSave}
                                 className="px-4 py-1 border border-purple-500 text-purple-400 hover:bg-purple-500/20 text-xs font-bold transition-colors flex items-center gap-1"
                             >
                                 <Save size={14} /> SAVE

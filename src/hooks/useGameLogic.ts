@@ -33,9 +33,19 @@ export function useGameLogic() {
     const [gameState, setGameState] = useState<GameState>('IDLE');
     const [currentEnemies, setCurrentEnemies] = useState<Enemy[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
 
     const logsEndRef = useRef<HTMLDivElement>(null);
     const queuedSkillRef = useRef(false);
+    const playerRef = useRef<Player>(player);
+    const lastSavedRef = useRef<string>("");
+
+    // Update playerRef whenever player changes
+    useEffect(() => {
+        playerRef.current = player;
+    }, [player]);
 
     const addLog = useCallback((text: string, type: LogEntry['type'] = 'info') => {
         setLogs(prev => [...prev.slice(-99), { id: generateId(), timestamp: new Date(), text, type }]);
@@ -50,24 +60,36 @@ export function useGameLogic() {
         }
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                const cloudData = await getPlayerData(user.uid);
-                if (cloudData) {
-                    setPlayer(prev => ({
-                        ...prev,
-                        ...cloudData,
-                        uid: user.uid,
-                        displayName: user.displayName || 'Player',
-                        photoURL: user.photoURL || ''
-                    }));
-                    addLog(`Welcome back, ${user.displayName}! Data synchronized.`, 'success');
-                } else {
-                    setPlayer(prev => ({
-                        ...prev,
-                        uid: user.uid,
-                        displayName: user.displayName || 'Player',
-                        photoURL: user.photoURL || ''
-                    }));
-                    addLog(`Logged in as ${user.displayName}.`, 'success');
+                try {
+                    const cloudData = await getPlayerData(user.uid);
+                    if (cloudData) {
+                        setPlayer(prev => ({
+                            ...prev,
+                            ...cloudData,
+                            uid: user.uid,
+                            displayName: user.displayName || 'Player',
+                            photoURL: user.photoURL || ''
+                        }));
+                        lastSavedRef.current = JSON.stringify(cloudData);
+                        setLastSaveTime(new Date());
+                        addLog(`[SYSTEM] Connection established. Welcome back, ${user.displayName}.`, 'success');
+                    } else {
+                        // New user - save initial data
+                        const initialData = {
+                            ...playerRef.current,
+                            uid: user.uid,
+                            displayName: user.displayName || 'Player',
+                            photoURL: user.photoURL || ''
+                        };
+                        await savePlayerData(user.uid, initialData);
+                        setPlayer(initialData);
+                        lastSavedRef.current = JSON.stringify(initialData);
+                        setLastSaveTime(new Date());
+                        addLog(`[SYSTEM] New profile created for ${user.displayName}.`, 'success');
+                    }
+                } catch (error) {
+                    addLog('[SYSTEM] Failed to synchronize cloud data.', 'error');
+                    console.error(error);
                 }
             } else {
                 setPlayer(prev => ({
@@ -76,32 +98,49 @@ export function useGameLogic() {
                     displayName: undefined,
                     photoURL: undefined
                 }));
-                addLog('Logged out.', 'info');
+                addLog('[SYSTEM] Session terminated. Offline mode active.', 'info');
             }
         });
         return () => unsubscribe();
     }, [addLog]);
 
-    // Auto-save every 60 seconds if logged in
+    // Optimized Auto-save: Every 5 minutes, only if data changed
     useEffect(() => {
-        if (!player.uid) return;
         const interval = setInterval(() => {
-            savePlayerData(player.uid!, player);
-        }, 60000);
+            if (playerRef.current.uid) {
+                const currentData = JSON.stringify(playerRef.current);
+                if (currentData !== lastSavedRef.current) {
+                    savePlayerData(playerRef.current.uid, playerRef.current);
+                    lastSavedRef.current = currentData;
+                    setLastSaveTime(new Date());
+                    console.log('[SYSTEM] Auto-save triggered.');
+                }
+            }
+        }, 300000); // 5 minutes
         return () => clearInterval(interval);
-    }, [player]);
+    }, []);
 
     const login = async () => {
+        if (isLoggingIn) return;
+        setIsLoggingIn(true);
         try {
             await signInWithGoogle();
-        } catch (error) {
-            addLog('Login failed.', 'error');
+            setShowLoginModal(false);
+        } catch (error: any) {
+            if (error.message.includes('cancelled')) {
+                addLog(error.message, 'warning');
+            } else {
+                addLog(error.message || 'Login failed.', 'error');
+            }
+        } finally {
+            setIsLoggingIn(false);
         }
     };
 
     const logout = async () => {
         try {
             await firebaseLogout();
+            setShowLoginModal(false);
         } catch (error) {
             addLog('Logout failed.', 'error');
         }
@@ -767,6 +806,21 @@ export function useGameLogic() {
         addLog(`Upgrade purchased: ${type}.`, 'success');
     };
 
+    const manualSave = async () => {
+        if (!player.uid) {
+            addLog('Cannot save: Not logged in.', 'error');
+            return;
+        }
+        try {
+            await savePlayerData(player.uid, player);
+            lastSavedRef.current = JSON.stringify(player);
+            setLastSaveTime(new Date());
+            addLog('[SYSTEM] Manual save successful. Data pushed to cloud.', 'success');
+        } catch (error) {
+            addLog('[SYSTEM] Manual save failed.', 'error');
+        }
+    };
+
     return {
         player,
         setPlayer,
@@ -775,6 +829,7 @@ export function useGameLogic() {
         currentEnemies,
         logs,
         addLog,
+        lastSaveTime,
         stats: {
             strMilestones, agiMilestones, vitMilestones, intMilestones, lukMilestones,
             activeSets, hasSet,
@@ -785,8 +840,11 @@ export function useGameLogic() {
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,
             enterVillage, openSettings, openDashboard, runAway, showHelp, equipItem, sellItem, upgradeItem,
-            heal, allocateStat, chooseClass, reborn, buyRebornUpgrade, login, logout
+            heal, allocateStat, chooseClass, reborn, buyRebornUpgrade, login, logout,
+            setShowLoginModal, manualSave
         },
+        showLoginModal,
+        isLoggingIn,
         refs: {
             logsEndRef, queuedSkillRef
         }
