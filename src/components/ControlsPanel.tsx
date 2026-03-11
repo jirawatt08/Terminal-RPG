@@ -232,14 +232,49 @@ export const ControlsPanel: React.FC = () => {
                                     Auto
                                 </label>
                             </div>
-                            <button
-                                onClick={() => { refs.queuedSkillRef.current = true; }}
-                                disabled={player.mp < CLASS_SKILLS[player.playerClass]!.cost || gameState === 'DEAD' || gameState === 'IDLE'}
-                                className="w-full flex items-center justify-between p-3 border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
-                            >
-                                <span>{CLASS_SKILLS[player.playerClass]!.name}</span>
-                                <span className="text-xs">-{CLASS_SKILLS[player.playerClass]!.cost} MP</span>
-                            </button>
+                            {(() => {
+                                const skills = CLASS_SKILLS[player.playerClass as keyof typeof CLASS_SKILLS] || [];
+                                const skill = [...skills].reverse().find(s => player.level >= s.unlockLevel);
+                                if (!skill) return null;
+                                const isMagic = skill.type === 'magic';
+                                const scalingStat = isMagic ? 'INT' : 'STR';
+                                const cd = player.skillCooldown;
+
+                                return (
+                                    <div className="flex flex-col gap-1">
+                                        <button
+                                            onClick={() => { refs.queuedSkillRef.current = true; }}
+                                            disabled={player.mp < skill.cost || gameState === 'DEAD' || gameState === 'IDLE' || cd > 0}
+                                            className="w-full flex items-center justify-between p-3 border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer relative overflow-hidden"
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="font-bold uppercase tracking-widest">{skill.name}</span>
+                                                <div className="flex gap-2 items-center">
+                                                    <span className="text-[9px] opacity-60">
+                                                        {skill.mult}x {scalingStat} {skill.aoe ? '(AOE)' : ''}
+                                                    </span>
+                                                    {skill.statusEffect && (
+                                                        <span className="text-[8px] text-cyan-400 font-bold uppercase">
+                                                            +{skill.statusEffect.chance}% {skill.statusEffect.type}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end shrink-0">
+                                                <span className="text-xs font-mono">-{skill.cost} MP</span>
+                                                {cd > 0 && <span className="text-[10px] text-red-400 font-bold animate-pulse">RELOAD: {cd}s</span>}
+                                            </div>
+                                            {/* CD Progress Overlay */}
+                                            {cd > 0 && (
+                                                <div 
+                                                    className="absolute bottom-0 left-0 h-0.5 bg-purple-500/50 transition-all duration-1000" 
+                                                    style={{ width: `${(cd / Math.max(1, Math.floor(skill.cooldown * (1 - (stats.skillHaste || 0) / 100)))) * 100}%` }}
+                                                />
+                                            )}
+                                        </button>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>

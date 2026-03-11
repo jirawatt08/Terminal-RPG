@@ -35,13 +35,23 @@ export const AlchemistTab: React.FC = () => {
                                     Buffer: {currentStacks}/{maxPotions}
                                 </div>
                             </div>
-                            <button
-                                onClick={() => actions.buyPotion(p.type)}
-                                disabled={!canAfford || isFull}
-                                className={`w-full py-2 border transition-all text-[10px] font-bold uppercase tracking-widest ${!canAfford || isFull ? 'border-gray-800 text-gray-800 opacity-30 cursor-not-allowed' : 'border-green-600 text-green-600 hover:bg-green-600/10'}`}
-                            >
-                                {isFull ? 'BUFFER_FULL' : `BUY (${cost}G)`}
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => actions.buyPotion(p.type)}
+                                    disabled={!canAfford || isFull}
+                                    className={`flex-1 py-2 border transition-all text-[9px] font-bold uppercase tracking-widest ${!canAfford || isFull ? 'border-gray-800 text-gray-800 opacity-30 cursor-not-allowed' : 'border-green-600 text-green-600 hover:bg-green-600/10'}`}
+                                >
+                                    {isFull ? 'FULL' : `BUY`}
+                                </button>
+                                <button
+                                    onClick={() => actions.buyMaxPotion(p.type)}
+                                    disabled={!canAfford || isFull}
+                                    className={`px-2 py-2 border transition-all text-[9px] font-bold uppercase tracking-widest ${!canAfford || isFull ? 'border-gray-800 text-gray-800 opacity-30 cursor-not-allowed' : 'border-green-600 text-green-600 hover:bg-green-600/10'}`}
+                                    title="Buy maximum possible"
+                                >
+                                    MAX
+                                </button>
+                            </div>
                         </div>
                     );
                 })}

@@ -40,11 +40,30 @@ export const getEffectTotal = (player: Player, type: 'lifesteal' | 'crit' | 'dod
 };
 
 export const calculateStats = (player: Player) => {
-    const totalStr = player.stats.str + getEquipmentStatBonus(player, 'str');
-    const totalAgi = player.stats.agi + getEquipmentStatBonus(player, 'agi');
-    const totalVit = player.stats.vit + getEquipmentStatBonus(player, 'vit');
-    const totalInt = player.stats.int + getEquipmentStatBonus(player, 'int');
-    const totalLuk = player.stats.luk + getEquipmentStatBonus(player, 'luk');
+    // 1. Calculate Base + Equipment
+    let rawStr = player.stats.str + getEquipmentStatBonus(player, 'str');
+    let rawAgi = player.stats.agi + getEquipmentStatBonus(player, 'agi');
+    let rawVit = player.stats.vit + getEquipmentStatBonus(player, 'vit');
+    let rawInt = player.stats.int + getEquipmentStatBonus(player, 'int');
+    let rawLuk = player.stats.luk + getEquipmentStatBonus(player, 'luk');
+
+    // 2. Apply Class Stat Bonuses
+    const cls = player.playerClass;
+    if (cls === 'Warrior') { rawVit *= 1.2; rawStr *= 1.1; }
+    else if (cls === 'Rogue') { rawAgi *= 1.2; rawLuk *= 1.1; }
+    else if (cls === 'Mage') { rawInt *= 1.2; rawVit *= 1.1; }
+    else if (cls === 'Paladin') { rawVit *= 1.3; rawInt *= 1.2; }
+    else if (cls === 'Berserker') { rawStr *= 1.3; rawAgi *= 1.2; }
+    else if (cls === 'Assassin') { rawAgi *= 1.3; rawLuk *= 1.2; }
+    else if (cls === 'Ranger') { rawAgi *= 1.2; rawStr *= 1.2; }
+    else if (cls === 'Archmage') { rawInt *= 1.4; rawVit *= 1.2; }
+    else if (cls === 'Necromancer') { rawInt *= 1.3; rawLuk *= 1.3; }
+
+    const totalStr = Math.floor(rawStr);
+    const totalAgi = Math.floor(rawAgi);
+    const totalVit = Math.floor(rawVit);
+    const totalInt = Math.floor(rawInt);
+    const totalLuk = Math.floor(rawLuk);
 
     // Derived milestones
     const strMilestones = Math.floor(totalStr / 10);
@@ -64,6 +83,8 @@ export const calculateStats = (player: Player) => {
 
     const bonusManaRegen = intMilestones * 2 + (player.playerClass === 'Mage' ? 5 : player.playerClass === 'Archmage' ? 15 : 0);
     const bonusMagicDmgPct = intMilestones * 0.05 + (player.playerClass === 'Mage' ? 0.2 : player.playerClass === 'Archmage' ? 0.4 : player.playerClass === 'Necromancer' ? 0.2 : player.playerClass === 'Paladin' ? 0.1 : 0);
+
+    const skillHaste = Math.min(50, Math.floor(totalAgi / 5) + Math.floor(totalInt / 10));
 
     const activeSets = getSetBonus(player);
     const hasSet = (name: string) => activeSets.includes(name);
@@ -85,17 +106,21 @@ export const calculateStats = (player: Player) => {
 
     const maxHp = Math.floor((player.maxHp + (totalVit * 40) + (getEquipmentValue(player.equipment.armor) * 10)) * (1 + bonusHpPct + setBonusHpPct + rebornHpBonus));
     
-    const classBonusMp = (player.playerClass === 'Mage' ? 50 : player.playerClass === 'Archmage' ? 150 : player.playerClass === 'Necromancer' ? 100 : player.playerClass === 'Paladin' ? 50 : 0);
-    const maxMp = Math.floor((player.maxMp + (totalInt * 15) + classBonusMp) * (1 + setBonusMpPct));
+    const classBonusMp = (player.playerClass === 'Mage' ? 200 : player.playerClass === 'Archmage' ? 500 : player.playerClass === 'Necromancer' ? 300 : player.playerClass === 'Paladin' ? 150 : 0);
+    const maxMp = Math.floor((player.maxMp + (totalInt * 12) + classBonusMp) * (1 + setBonusMpPct));
 
     const potionExpBonus = player.potions?.filter(p => p.type === 'exp').reduce((acc, p) => acc + p.value, 0) || 0;
     const potionGoldBonus = player.potions?.filter(p => p.type === 'coin').reduce((acc, p) => acc + p.value, 0) || 0;
     const potionLuckBonus = player.potions?.filter(p => p.type === 'luck').reduce((acc, p) => acc + p.value, 0) || 0;
 
     const totalAttack = Math.floor((player.baseAttack + (totalStr * 2) + getEquipmentValue(player.equipment.weapon)) * (1 + bonusAtkPct + setBonusAtkPct + rebornAtkBonus));
-    const totalDefense = Math.floor((player.baseDefense + (totalVit * 1.5) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
-    const totalMagicAttack = Math.floor((totalInt * 2 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
-    const totalLuck = totalLuk + getEffectTotal(player, 'luck') + potionLuckBonus;
+    const totalDefense = Math.floor((player.baseDefense + (totalVit * 1.2) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
+    const totalMagicAttack = Math.floor((totalInt * 3 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
+    
+    // Potion Luck is now a percentage boost
+    const baseLuck = totalLuk + getEffectTotal(player, 'luck');
+    const totalLuck = Math.floor(baseLuck * (1 + potionLuckBonus / 100));
+    
     const totalStatusChance = 2 + Math.floor(totalInt / 5) + getEffectTotal(player, 'statusChance');
 
     let critChance = getEffectTotal(player, 'crit') + bonusCritChance + setBonusCrit;
@@ -123,6 +148,7 @@ export const calculateStats = (player: Player) => {
         totalStr, totalAgi, totalVit, totalInt, totalLuk,
         strMilestones, agiMilestones, vitMilestones, intMilestones, lukMilestones,
         milestoneBonuses,
+        skillHaste,
         maxHp, maxMp, totalAttack, totalDefense, totalMagicAttack, totalLuck, totalStatusChance,
         critChance, finalCritDmg, dodgeChance, lifesteal,
         bonusManaRegen,

@@ -37,7 +37,7 @@ export interface Quest {
 
 export type StatusEffectType = 'poison' | 'burn' | 'stun' | 'freeze';
 
-export type EnemyPassiveType = 'reflect' | 'regen' | 'thorns' | 'dodge' | 'lifesteal' | 'berserk' | 'shield';
+export type EnemyPassiveType = 'reflect' | 'regen' | 'thorns' | 'dodge' | 'lifesteal' | 'berserk' | 'shield' | 'summoner';
 
 export interface EnemyPassive {
   type: EnemyPassiveType;
@@ -155,9 +155,13 @@ export interface Enemy {
   skill?: EnemySkill;
   passive?: EnemyPassive;
   statusEffects: StatusEffect[];
+  critChance: number;
+  critDamage: number;
+  statusResistance: number;
+  armorPenetration: number;
 }
 
-export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD' | 'SETTINGS' | 'DASHBOARD';
+export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD' | 'SETTINGS' | 'DASHBOARD' | 'PATCHES';
 
 export interface LogEntry {
   id: string;

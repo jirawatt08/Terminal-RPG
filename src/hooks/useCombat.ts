@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Player, Enemy, GameState, Item, StatusEffect } from '../types';
-import { generateEnemies, generateLoot } from '../utils';
+import { generateEnemy, generateEnemies, generateLoot } from '../utils';
 import { CLASS_SKILLS } from '../constants';
 
 interface UseCombatProps {
@@ -35,30 +35,40 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
     };
 
     const handlePlayerTurn = (p: Player, enemies: Enemy[]) => {
-        const { totalAttack, totalMagicAttack, critChance, finalCritDmg, lifesteal, totalStatusChance, maxHp, totalDefense } = statsRef.current;
+        const { totalAttack, totalMagicAttack, critChance, finalCritDmg, lifesteal, totalStatusChance, maxHp, totalDefense, totalStr, totalInt, skillHaste } = statsRef.current;
         
         let isCrit = Math.random() * 100 < critChance;
-        const skill = CLASS_SKILLS[p.playerClass];
+        const skills = CLASS_SKILLS[p.playerClass as keyof typeof CLASS_SKILLS] || [];
+        const skill = [...skills].reverse().find(s => p.level >= s.unlockLevel);
         const canCastSkill = skill && p.mp >= skill.cost && p.skillCooldown <= 0;
         const shouldCastSkill = canCastSkill && (p.autoSkill || queuedSkillRef.current);
 
         let targets = [enemies[0]];
-        let damage = 0;
+        let rawDamage = 0;
         let usedSkill = false;
 
         if (shouldCastSkill && skill) {
             usedSkill = true;
             p.mp -= skill.cost;
-            p.skillCooldown = skill.cooldown;
+            // Apply Skill Haste (CDR)
+            const actualCooldown = Math.max(1, Math.floor(skill.cooldown * (1 - (skillHaste || 0) / 100)));
+            p.skillCooldown = actualCooldown;
             queuedSkillRef.current = false;
             if (skill.aoe) targets = [...enemies];
-            damage = skill.type === 'physical' ? Math.floor(totalAttack * skill.mult) : Math.floor(totalMagicAttack * skill.mult);
+            
+            // Scaled Damage Formula: Raw * SkillMult * (1 + Attribute/100)
+            if (skill.type === 'physical') {
+                rawDamage = Math.floor(totalAttack * skill.mult * (1 + totalStr / 100));
+            } else {
+                rawDamage = Math.floor(totalMagicAttack * skill.mult * (1 + totalInt / 100));
+            }
+            
             if (skill.guaranteedCrit) isCrit = true;
         } else {
-            damage = totalAttack + Math.floor(Math.random() * 5);
+            rawDamage = totalAttack + Math.floor(Math.random() * 5);
         }
 
-        if (isCrit) damage = Math.floor(damage * finalCritDmg);
+        if (isCrit) rawDamage = Math.floor(rawDamage * finalCritDmg);
 
         let totalHeal = 0;
         targets.forEach(target => {
@@ -67,11 +77,33 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                 return;
             }
 
-            let finalDmg = Math.max(1, damage - (usedSkill && skill?.type === 'magic' ? Math.floor(target.defense * 0.5) : target.defense));
+            // Damage Reduction Formula: Final = Raw * (100 / (100 + Defense))
+            // Players have 0 penetration by default for now (or maybe base on some stat?)
+            const effectiveDef = target.defense;
+            const damageFactor = 100 / (100 + effectiveDef);
+            let finalDmg = Math.max(1, Math.floor(rawDamage * damageFactor));
+            
             if (target.passive?.type === 'shield') finalDmg = Math.floor(finalDmg * (1 - target.passive.value / 100));
 
             addLog(`> ${isCrit ? 'CRITICAL ' : ''}${usedSkill ? '[' + skill!.name + ']' : 'Attack'} on ${target.name} for ${finalDmg} dmg.`, 'combat');
             target.hp -= finalDmg;
+
+            // Apply Skill Status Effect if applicable
+            if (usedSkill && skill?.statusEffect) {
+                if (Math.random() * 100 < skill.statusEffect.chance) {
+                    // Check Enemy Resistance
+                    if (Math.random() * 100 < target.statusResistance) {
+                        addLog(`> ${target.name} resisted the ${skill.name} effect!`, 'info');
+                    } else {
+                        target.statusEffects.push({
+                            type: skill.statusEffect.type,
+                            duration: skill.statusEffect.duration,
+                            value: skill.type === 'magic' ? Math.floor(totalMagicAttack * 0.5) : Math.floor(totalAttack * 0.5)
+                        });
+                        addLog(`> ${skill.name} applied ${skill.statusEffect.type} to ${target.name}!`, 'success');
+                    }
+                }
+            }
 
             if (target.passive?.type === 'thorns' || target.passive?.type === 'reflect') {
                 const reflect = Math.floor(finalDmg * (target.passive.value / 100));
@@ -84,6 +116,12 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                 const i = item as Item | null;
                 if (i?.effect && ['poison', 'burn', 'stun', 'freeze'].includes(i.effect.type)) {
                     if ((Math.floor(Math.random() * 10) + 1) <= totalStatusChance) {
+                        // Check Enemy Resistance
+                        if (Math.random() * 100 < target.statusResistance) {
+                            addLog(`> ${target.name} resisted the ${i.effect.type}!`, 'info');
+                            return;
+                        }
+
                         let val = i.effect.value;
                         if (i.effect.type === 'poison') val = Math.min(Math.floor(target.maxHp * 0.05), totalAttack * 10);
                         else if (i.effect.type === 'burn') val = Math.min(Math.floor(totalDefense * 0.5), totalAttack * 5);
@@ -125,15 +163,29 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
             return;
         }
 
-        let dmg = 0;
+        let rawDamage = 0;
+        let isEnemyCrit = Math.random() * 100 < enemy.critChance;
+
         if (enemy.skill && enemy.skill.currentCooldown <= 0) {
-            dmg = Math.max(1, Math.floor(enemy.attack * enemy.skill.mult) - totalDefense);
+            rawDamage = Math.floor(enemy.attack * enemy.skill.mult);
             enemy.skill.currentCooldown = enemy.skill.cooldown;
-            addLog(`< [SKILL] ${enemy.name} used ${enemy.skill.name} for ${dmg} dmg!`, 'error');
         } else {
-            dmg = Math.max(1, enemy.attack - totalDefense);
+            rawDamage = enemy.attack;
             if (enemy.skill) enemy.skill.currentCooldown -= 1;
-            addLog(`< ${enemy.name} attacked for ${dmg} dmg.`, 'error');
+        }
+        
+        if (isEnemyCrit) rawDamage = Math.floor(rawDamage * enemy.critDamage);
+
+        // Damage Reduction Formula: Final = Raw * (100 / (100 + EffectiveDefense))
+        // Effective Defense = Defense * (1 - Penetration / 100)
+        const effectiveDef = totalDefense * (1 - enemy.armorPenetration / 100);
+        const damageFactor = 100 / (100 + effectiveDef);
+        let dmg = Math.max(1, Math.floor(rawDamage * damageFactor));
+
+        if (enemy.skill && enemy.skill.currentCooldown === enemy.skill.cooldown) {
+            addLog(`< ${isEnemyCrit ? 'CRITICAL ' : ''}[SKILL] ${enemy.name} used ${enemy.skill.name} for ${dmg} dmg!`, 'error');
+        } else {
+            addLog(`< ${isEnemyCrit ? 'CRITICAL ' : ''}${enemy.name} attacked for ${dmg} dmg.`, 'error');
         }
 
         if (enemy.passive?.type === 'berserk' && enemy.hp < enemy.maxHp * 0.3) dmg = Math.floor(dmg * (1 + enemy.passive.value / 100));
@@ -218,9 +270,21 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                             if (q.requirement.current >= q.requirement.target) { q.completed = true; addLog(`[QUEST] ${q.name} met!`, 'success'); }
                             return q;
                         });
-                        p.potions = p.potions.map(pot => ({ ...pot, duration: pot.duration - 1 })).filter(pot => pot.duration > 0);
+                        p.potions = p.potions.map(pot => {
+                            if (pot.type === 'health') return pot;
+                            return { ...pot, duration: pot.duration - 1 };
+                        }).filter(pot => pot.duration > 0);
                         
-                        const exp = Math.floor(target.expReward * (1 + (p.rebornUpgrades.expBonus / 100) + setBonusExpPct + (potionExpBonus / 100)));
+                        // EXP Rework: % of maxExp based on difficulty efficiency
+                        const basePct = target.isBoss ? 0.025 : 0.005;
+                        const currentStg = gameState === 'NEXT_BOSS_FIGHT' ? p.stage + 1 : p.stage;
+                        // Efficiency: 1.0 if Stage = Level/5. Ranges 0.2 to 2.0.
+                        const efficiency = Math.max(0.2, Math.min(2.0, currentStg / (Math.max(1, p.level) / 5)));
+                        
+                        const baseGained = (target.expReward * 0.2) + (p.maxExp * basePct * efficiency);
+                        const expBonusMult = (1 + (p.rebornUpgrades.expBonus / 100) + setBonusExpPct + (potionExpBonus / 100));
+                        const exp = Math.floor(baseGained * expBonusMult);
+
                         const gold = Math.floor(target.goldReward * (1 + (p.rebornUpgrades.goldBonus / 100) + setBonusGoldPct + (potionGoldBonus / 100)));
                         p.exp += exp; p.gold += gold;
                         addLog(`+ ${exp} EXP | + ${gold} Gold`, 'info');
@@ -249,7 +313,17 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                 }
 
                 // Enemy Attacks
-                surviving.forEach(e => handleEnemyTurn(p, e));
+                surviving.forEach(e => {
+                    // Boss Summoning Mechanic
+                    if (e.passive?.type === 'summoner' && surviving.length < 4) {
+                        if (Math.random() * 100 < e.passive.value) {
+                            const minion = generateEnemy(p.level, gameState === 'NEXT_BOSS_FIGHT' ? p.stage + 1 : p.stage, false);
+                            surviving.push(minion);
+                            addLog(`[SUMMON] ${e.name} summoned ${minion.name}!`, 'warning');
+                        }
+                    }
+                    handleEnemyTurn(p, e);
+                });
                 const finalEnemies = surviving.filter(e => e.hp > 0);
                 setCurrentEnemies(finalEnemies);
 
@@ -260,11 +334,56 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
         return () => clearInterval(interval);
     }, [gameState, currentEnemies, addLog, setCurrentEnemies]);
 
+    const showHelp = () => {
+        addLog('==================================================', 'system');
+        addLog('TERMINAL RPG v2.7 - SYSTEM DOCUMENTATION', 'system');
+        addLog('==================================================', 'system');
+        addLog('SKILL OVERDRIVE:', 'info');
+        addLog('- Skills scale with your primary attribute (STR/INT).', 'info');
+        addLog('- Cooldowns are reduced by Skill Haste (AGI/INT).', 'info');
+        addLog('- Tier 2 skills can apply STATUS EFFECTS (Burn/Freeze/etc).', 'info');
+        addLog('--------------------------------------------------', 'system');
+        addLog('COMMANDS:', 'info');
+
+        addLog('- Equip 2+ items of the same SET to unlock unique bonuses.', 'info');
+        addLog('- [Berserker]: Massive Attack boost.', 'info');
+        addLog('- [Guardian]: High HP and Defense increase.', 'info');
+        addLog('- [Sage]: Enhanced MP and Magic Power.', 'info');
+        addLog('- [Explorer]: Significant EXP gain boost.', 'info');
+        addLog('- View active bonuses in SYS_STATUS > PASSIVES.', 'info');
+        addLog('--------------------------------------------------', 'system');
+        addLog('ATTRIBUTES & MILESTONES:', 'info');
+        addLog('- STR: +Atk. Every 10 pts: +5% Atk, +10% Crit Dmg.', 'info');
+        addLog('- AGI: +Crit/Dodge. Every 10 pts: +2% Crit, +2% Dodge.', 'info');
+        addLog('- VIT: +HP/Def. Every 10 pts: +5% HP/Def.', 'info');
+        addLog('- INT: +M.Atk/MP. Every 10 pts: +2 MP Regen, +5% M.Atk.', 'info');
+        addLog('- LUK: +Drop Rate. Every 10 pts: +1% Drop Rarity.', 'info');
+        addLog('--------------------------------------------------', 'system');
+        addLog('COMBAT MECHANICS:', 'info');
+        addLog('- Skill Haste: AGI and INT reduce skill cooldowns.', 'info');
+        addLog('- Armor Pen: High-stage enemies ignore some Defense.', 'info');
+        addLog('- Status Resist: Bosses can ignore status effects.', 'info');
+        addLog('- Auto-Scroll: Toggle in header to scroll logs manually.', 'info');
+        addLog('--------------------------------------------------', 'system');
+        addLog('VILLAGE SECTORS:', 'info');
+        addLog('- Blacksmith: Enhance equipment using Gold.', 'info');
+        addLog('- Alchemist: Buy/Stack potions. Use "MAX" to fill.', 'info');
+        addLog('- Merchant: Sell items. "Sell All" clears inventory.', 'info');
+        addLog('- Quest Board: High-reward bounties per stage.', 'info');
+        addLog('==================================================', 'system');
+    };
+
+    const openPatchNotes = () => {
+        setGameState('PATCHES');
+        addLog('Opening System Update History...', 'system');
+    };
+
     return {
         gameState, setGameState, currentEnemies, setCurrentEnemies,
         runAway: () => { setGameState('IDLE'); setCurrentEnemies([]); addLog('Escaped.', 'system'); },
         openSettings: () => { if (!['BOSS_FIGHT', 'NEXT_BOSS_FIGHT', 'FARMING'].includes(gameState)) { setGameState('SETTINGS'); setCurrentEnemies([]); } },
         openDashboard: () => setGameState('DASHBOARD'),
-        showHelp: () => addLog('SYSTEM_DOCS_V2.2: Command list available in ./help', 'info')
+        openPatchNotes,
+        showHelp
     };
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { TerminalTab } from '../constants';
 import { ProgressBar } from './ProgressBar';
+import { Sword, Shield, Zap, RotateCcw, Info } from 'lucide-react';
 
 export const ConsolePanel: React.FC = () => {
     const { logs, gameState, currentEnemies, refs, player, addLog } = useGame();
@@ -20,16 +21,25 @@ export const ConsolePanel: React.FC = () => {
     return (
         <div className="flex-1 flex flex-col h-full bg-[#050505] overflow-hidden">
             {/* Header / Tabs */}
-            <div className="flex bg-[#00ff00]/5 border-b border-[#00ff00]/20">
-                {tabs.map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-4 py-2 text-[10px] font-bold transition-all uppercase tracking-widest ${activeTab === tab ? 'text-[#00ff00] bg-[#00ff00]/10 border-b border-[#00ff00]' : 'text-[#00ff00]/30 hover:text-[#00ff00]/60'}`}
-                    >
-                        {tab}
-                    </button>
-                ))}
+            <div className="flex bg-[#00ff00]/5 border-b border-[#00ff00]/20 justify-between items-center pr-2">
+                <div className="flex">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-4 py-2 text-[10px] font-bold transition-all uppercase tracking-widest ${activeTab === tab ? 'text-[#00ff00] bg-[#00ff00]/10 border-b border-[#00ff00]' : 'text-[#00ff00]/30 hover:text-[#00ff00]/60'}`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+                
+                <button 
+                    onClick={() => useGame().setAutoScroll(!useGame().autoScroll)}
+                    className={`text-[9px] font-bold px-2 py-1 border rounded-sm transition-all ${useGame().autoScroll ? 'border-[#00ff00]/40 text-[#00ff00]' : 'border-red-500/40 text-red-500'}`}
+                >
+                    {useGame().autoScroll ? 'SCROLL: ON' : 'SCROLL: OFF'}
+                </button>
             </div>
 
             {/* Enemy HUD (if in combat) */}
@@ -52,6 +62,30 @@ export const ConsolePanel: React.FC = () => {
                                 height="h-1.5"
                                 barMode={player.settings.barMode}
                             />
+                            
+                            {/* Detailed Stats Row */}
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                                <div className="flex items-center gap-1 text-[9px] text-[#00ff00]/60 uppercase font-mono">
+                                    <Sword size={10} className="text-[#00ff00]/40" />
+                                    <span>{enemy.attack}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[9px] text-[#00ff00]/60 uppercase font-mono">
+                                    <Shield size={10} className="text-[#00ff00]/40" />
+                                    <span>{enemy.defense}</span>
+                                </div>
+                                {enemy.skill && (
+                                    <div className="flex items-center gap-1 text-[9px] text-purple-400 uppercase font-mono" title={`${enemy.skill.name}: ${enemy.skill.mult}x Mult`}>
+                                        <Zap size={10} className="text-purple-400/40" />
+                                        <span>{enemy.skill.name} ({enemy.skill.currentCooldown}/{enemy.skill.cooldown}s)</span>
+                                    </div>
+                                )}
+                                {enemy.passive && (
+                                    <div className="flex items-center gap-1 text-[9px] text-cyan-400 uppercase font-mono" title={enemy.passive.description}>
+                                        <Info size={10} className="text-cyan-400/40" />
+                                        <span>{enemy.passive.type}</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>

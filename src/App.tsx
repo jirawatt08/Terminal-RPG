@@ -42,10 +42,11 @@ export default function App() {
             closeSettings={actions.stopAction}
             manualSave={actions.manualSave}
           />
-        ) : gameState === 'DASHBOARD' ? (
+        ) : gameState === 'DASHBOARD' || gameState === 'PATCHES' ? (
           <DashboardPanel
             onClose={actions.stopAction}
             localRecords={stats.rebornHistory}
+            initialView={gameState === 'PATCHES' ? 'PATCHES' : 'GLOBAL'}
           />
         ) : (
           <ConsolePanel

@@ -145,11 +145,22 @@ export const InventoryPanel: React.FC = () => {
                   <div className="p-2 border border-[#00ff00]/20 bg-[#00ff00]/5 rounded-sm flex justify-between items-center group relative hover:border-[#00ff00]/40 transition-all">
                     <div className="flex flex-col min-w-0">
                       <span className={`text-[10px] font-bold uppercase tracking-widest truncate ${RARITY_COLORS[item.rarity]}`}>{item.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8px] text-[#00ff00]/40 uppercase tracking-tighter">{item.type}</span>
+                        <span className="text-[9px] text-[#00ff00]/80 font-bold">
+                          +{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}
+                        </span>
+                      </div>
                       <div className="flex gap-2">
                         {item.stats && Object.entries(item.stats).map(([s, v]) => (
-                          <span key={s} className="text-[8px] text-[#00ff00]/40 uppercase">{s}:{v}</span>
+                          <span key={s} className="text-[8px] text-cyan-400/60 uppercase font-bold">{s}:{v}</span>
                         ))}
                       </div>
+                      {item.effect && (
+                        <div className="mt-0.5 text-[8px] text-blue-400/60 uppercase tracking-widest italic">
+                          PROG: {item.effect.type} +{item.effect.value}%
+                        </div>
+                      )}
                     </div>
                     <button 
                       onClick={() => actions.toggleItemLock(item)}

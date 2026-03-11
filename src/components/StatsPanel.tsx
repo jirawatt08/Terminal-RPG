@@ -3,6 +3,7 @@ import { useGame } from '../context/GameContext';
 import { PlayerClass } from '../types';
 import { ProgressBar } from './ProgressBar';
 import { Heart, Zap, Sword, Shield, Coins, ArrowUpCircle, Info, Activity, ShieldCheck, Trophy } from 'lucide-react';
+import { SET_BONUSES } from '../constants';
 
 type StatsTab = 'ATTRIBUTES' | 'COMBAT' | 'PASSIVES' | 'REBORN';
 
@@ -137,6 +138,10 @@ export const StatsPanel: React.FC = () => {
                 const base = player.stats[stat];
                 const bonus = total - base;
                 
+                // For Luck, we have a multiplier from potions
+                const isLuck = stat === 'luk';
+                const potionBonus = isLuck ? stats.potionLuckBonus : 0;
+                
                 return (
                   <div key={stat} className="flex justify-between items-center group">
                     <div className="flex flex-col">
@@ -144,9 +149,14 @@ export const StatsPanel: React.FC = () => {
                       <span className="text-[9px] text-[#00ff00]/30 uppercase italic">{stats[`${stat}Milestones` as keyof typeof stats]} Milestones</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="text-right flex flex-col items-end" title={`Base: ${base} | Items: +${bonus}`}>
+                      <div className="text-right flex flex-col items-end" title={isLuck ? `Base: ${base} | Items: +${bonus - Math.floor(base * (potionBonus/100))} | Potion: +${potionBonus}%` : `Base: ${base} | Items: +${bonus}`}>
                         <span className="text-sm font-mono">{total}</span>
-                        {bonus > 0 && <span className="text-[8px] text-cyan-400 font-bold">({base} + {bonus})</span>}
+                        {(bonus > 0 || potionBonus > 0) && (
+                          <div className="flex gap-1 items-center">
+                            <span className="text-[8px] text-cyan-400 font-bold">({base} + {isLuck ? bonus : bonus})</span>
+                            {isLuck && potionBonus > 0 && <span className="text-[8px] text-yellow-500 font-bold">x{1 + potionBonus/100}</span>}
+                          </div>
+                        )}
                       </div>
                       {player.statPoints > 0 && (
                         <button 
@@ -228,6 +238,10 @@ export const StatsPanel: React.FC = () => {
                 <span className="font-mono text-yellow-500">{Math.floor(stats.finalCritDmg * 100)}%</span>
               </div>
               <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Skill Haste (CDR)</span>
+                <span className="font-mono text-purple-400">{stats.skillHaste}%</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
                 <span className="text-[#00ff00]/60 uppercase">Dodge Chance</span>
                 <span className="font-mono text-green-400">{stats.dodgeChance}%</span>
               </div>
@@ -245,11 +259,17 @@ export const StatsPanel: React.FC = () => {
               </div>
               <div className="flex justify-between items-center text-xs pt-2 border-t border-[#00ff00]/5">
                 <span className="text-[#00ff00]/60 uppercase">Bonus Gold</span>
-                <span className="font-mono text-yellow-600">+{Math.floor(stats.setBonusGoldPct * 100)}%</span>
+                <div className="flex gap-1 items-center font-mono">
+                  <span className="text-yellow-600">+{Math.floor(stats.setBonusGoldPct * 100)}%</span>
+                  {stats.potionGoldBonus > 0 && <span className="text-yellow-500 font-bold"> (+{stats.potionGoldBonus}%)</span>}
+                </div>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-[#00ff00]/60 uppercase">Bonus EXP</span>
-                <span className="font-mono text-blue-300">+{Math.floor(stats.setBonusExpPct * 100)}%</span>
+                <div className="flex gap-1 items-center font-mono">
+                  <span className="text-blue-300">+{Math.floor(stats.setBonusExpPct * 100)}%</span>
+                  {stats.potionExpBonus > 0 && <span className="text-blue-400 font-bold"> (+{stats.potionExpBonus}%)</span>}
+                </div>
               </div>
             </div>
           </div>
@@ -300,9 +320,14 @@ export const StatsPanel: React.FC = () => {
               <div className="space-y-2">
                 {stats.activeSets.length > 0 ? (
                   stats.activeSets.map(set => (
-                    <div key={set} className="flex justify-between items-center text-[10px] p-1.5 bg-yellow-500/5 border border-yellow-500/10 rounded-sm">
-                      <span className="text-yellow-500 font-bold uppercase tracking-widest">{set}</span>
-                      <span className="text-[#00ff00]/60 font-bold">ACTIVE</span>
+                    <div key={set} className="flex flex-col gap-1 p-2 bg-yellow-500/5 border border-yellow-500/10 rounded-sm">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-yellow-500 font-bold uppercase tracking-widest">[{set}]</span>
+                        <span className="text-[#00ff00]/60 font-bold">ACTIVE</span>
+                      </div>
+                      <div className="text-[9px] text-yellow-500/40 uppercase tracking-tighter italic">
+                        {SET_BONUSES[set] || 'No detail found.'}
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -334,8 +359,12 @@ export const StatsPanel: React.FC = () => {
                     key={type}
                     onClick={() => actions.buyRebornUpgrade(type)}
                     className="flex flex-col p-2 border border-[#00ff00]/10 bg-[#00ff00]/2 hover:border-[#00ff00]/40 hover:bg-[#00ff00]/5 transition-all group"
+                    title={`Cost: ${type === 'pointBonus' ? '10' : '5'} RP`}
                   >
-                    <span className="text-[8px] text-[#00ff00]/40 uppercase tracking-tighter group-hover:text-[#00ff00]/60">{type.replace('Bonus', '')}</span>
+                    <div className="flex justify-between w-full">
+                      <span className="text-[8px] text-[#00ff00]/40 uppercase tracking-tighter group-hover:text-[#00ff00]/60">{type.replace('Bonus', '')}</span>
+                      <span className="text-[8px] text-yellow-600 font-bold">{type === 'pointBonus' ? '10' : '5'} RP</span>
+                    </div>
                     <span className="text-[10px] font-bold text-yellow-500/80">+{player.rebornUpgrades[type]}{type === 'statBonus' ? '' : '%'}</span>
                   </button>
                 ))}

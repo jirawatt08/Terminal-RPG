@@ -218,23 +218,71 @@ export const getPlayerData = async (uid: string) => {
 export const saveRebornRecord = async (record: any) => {
   if (!isFirebaseConfigured) return;
   try {
-    const compressed = compressData(record);
-    const docRef = doc(db, 'records', record.uid); // Unified record for each player using UID
-    await setDoc(docRef, {
-      ...compressed,
-      timestamp: serverTimestamp()
-    }, { merge: true });
+    const docRef = doc(db, 'records', record.uid);
+    const existingDoc = await getDoc(docRef);
+    
+    let shouldUpdate = true;
+    if (existingDoc.exists()) {
+      const existingData = existingDoc.data();
+      // Use uncompressed keys for comparison if available, otherwise fallback to compressed for legacy
+      const existingStage = Number(existingData.stage ?? existingData.s ?? 0);
+      const existingLevel = Number(existingData.level ?? existingData.l ?? 0);
+
+      // Only update if new stage is higher, or stage is same but level is higher
+      if (record.stage < existingStage) {
+        shouldUpdate = false;
+      } else if (record.stage === existingStage && record.level <= existingLevel) {
+        // Even if the run is the same, if we are migrating from legacy 's' to 'stage', we should update
+        if (existingData.s && !existingData.stage) {
+            shouldUpdate = true;
+        } else {
+            shouldUpdate = false;
+        }
+      }
+    }
+
+    if (shouldUpdate) {
+      // SAVE WITHOUT COMPRESSION for better querying in Dashboard
+      await setDoc(docRef, {
+        ...record,
+        timestamp: serverTimestamp()
+      }, { merge: true });
+      console.log(`[FIREBASE] High score update triggered for ${record.displayName}: Stage ${record.stage}`);
+    }
   } catch (error) {
     console.error("Error saving reborn record", error);
   }
 };
 
-export const getGlobalRecords = async (limitCount: number = 20) => {
+export const getGlobalRecords = async (limitCount: number = 50) => {
   if (!isFirebaseConfigured) return [];
   try {
-    const q = query(collection(db, 'records'), orderBy('timestamp', 'desc'), limit(limitCount));
+    // Use simple timestamp ordering to avoid needing composite indices
+    // We fetch a larger batch and sort client-side for better reliability
+    const q = query(
+      collection(db, 'records'), 
+      orderBy('timestamp', 'desc'), 
+      limit(limitCount)
+    );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...decompressData(doc.data()) }));
+    const records = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // If data was compressed (legacy), decompress it, otherwise use as-is
+        const decompressed = data.s ? decompressData(data) : data;
+        // Ensure stage and level are numbers for sorting
+        return { 
+            id: doc.id, 
+            ...decompressed,
+            stage: Number(decompressed.stage || 0),
+            level: Number(decompressed.level || 0)
+        };
+    });
+
+    // Sort by Stage DESC, then Level DESC
+    return records.sort((a, b) => {
+        if (b.stage !== a.stage) return b.stage - a.stage;
+        return b.level - a.level;
+    });
   } catch (error) {
     console.error("Error getting global records", error);
     return [];

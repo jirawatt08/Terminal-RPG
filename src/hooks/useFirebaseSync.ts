@@ -48,14 +48,6 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
                             addLog('[REPAIR] Invalid Reborn Points detected and reset to 0.', 'warning');
                         }
 
-                        // Explicit Upgrade Reset (Requested by user in previous version)
-                        const baseUpgrades = {
-                            atkBonus: 0, hpBonus: 0, expBonus: 0, goldBonus: 0, statBonus: 0, pointBonus: 0
-                        };
-                        repairedData.rebornUpgrades = baseUpgrades;
-                        needsSave = true;
-                        addLog('[SYSTEM] Reborn upgrades have been reset as requested.', 'info');
-
                         setPlayer(prev => ({
                             ...prev,
                             ...repairedData,

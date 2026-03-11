@@ -8,7 +8,7 @@ import { useVillageActions } from './useVillageActions';
 import { calculateStats, getEquipmentValue } from '../logic/stats';
 
 export function useGameLogic() {
-    const { logs, addLog, logsEndRef } = useLog();
+    const { logs, addLog, logsEndRef, autoScroll, setAutoScroll } = useLog();
     const { player, setPlayer, allocateStat, chooseClass, reborn, buyRebornUpgrade } = usePlayerState(addLog);
     
     const {
@@ -23,7 +23,7 @@ export function useGameLogic() {
 
     const {
         gameState, setGameState, currentEnemies, setCurrentEnemies,
-        runAway, openSettings, openDashboard, showHelp
+        runAway, openSettings, openDashboard, openPatchNotes, showHelp
     } = useCombat({ player, setPlayer, addLog, stats, queuedSkillRef });
 
     const {
@@ -32,14 +32,14 @@ export function useGameLogic() {
 
     const {
         startFarming, startBossFight, startNextBossFight, stopAction,
-        enterVillage, heal, buyPotion, buyPotionMaxUpgrade, buyPotionQualityUpgrade,
+        enterVillage, heal, buyPotion, buyMaxPotion, buyPotionMaxUpgrade, buyPotionQualityUpgrade,
         acceptQuest, completeQuest
     } = useVillageActions({ 
         player, setPlayer, gameState, setGameState, addLog, stats, setCurrentEnemies 
     });
 
     useEffect(() => {
-        addLog('SYSTEM INITIALIZED. WELCOME TO TERMINAL RPG v2.1', 'system');
+        addLog('SYSTEM INITIALIZED. WELCOME TO TERMINAL RPG v2.7', 'system');
         addLog('Type or click commands to begin your process.', 'info');
     }, [addLog]);
 
@@ -52,6 +52,8 @@ export function useGameLogic() {
         logs,
         addLog,
         lastSaveTime,
+        autoScroll,
+        setAutoScroll,
         stats: {
             ...stats,
             getEquipmentValue,
@@ -59,10 +61,10 @@ export function useGameLogic() {
         },
         actions: {
             startFarming, startBossFight, startNextBossFight, stopAction,
-            enterVillage, openSettings, openDashboard, runAway, showHelp,
+            enterVillage, openSettings, openDashboard, openPatchNotes, runAway, showHelp,
             equipItem, sellItem, upgradeItem, toggleItemLock, sellAllItems, heal, allocateStat,
             chooseClass, manualSave, setShowLoginModal,
-            login, logout, buyPotion, acceptQuest, completeQuest,
+            login, logout, buyPotion, buyMaxPotion, acceptQuest, completeQuest,
             buyPotionMaxUpgrade, buyPotionQualityUpgrade,
             reborn: () => reborn(setGameState, setCurrentEnemies),
             buyRebornUpgrade

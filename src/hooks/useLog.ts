@@ -4,6 +4,7 @@ import { generateId } from '../utils';
 
 export function useLog() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [autoScroll, setAutoScroll] = useState(true);
     const logsEndRef = useRef<HTMLDivElement>(null);
 
     const addLog = useCallback((text: string, type: LogEntry['type'] = 'info') => {
@@ -11,12 +12,16 @@ export function useLog() {
     }, []);
 
     useEffect(() => {
-        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [logs]);
+        if (autoScroll) {
+            logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [logs, autoScroll]);
 
     return {
         logs,
         addLog,
-        logsEndRef
+        logsEndRef,
+        autoScroll,
+        setAutoScroll
     };
 }
