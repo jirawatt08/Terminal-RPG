@@ -1,336 +1,366 @@
 import React, { useState } from 'react';
-import { Terminal, Heart, Zap, Sword, Shield, Coins, ArrowUpCircle } from 'lucide-react';
-import { Player, PlayerClass } from '../types';
-import { RARITY_COLORS, SET_BONUSES } from '../constants';
+import { useGame } from '../context/GameContext';
+import { PlayerClass } from '../types';
 import { ProgressBar } from './ProgressBar';
+import { Heart, Zap, Sword, Shield, Coins, ArrowUpCircle, Info, Activity, ShieldCheck, Trophy } from 'lucide-react';
 
-interface StatsPanelProps {
-    player: Player;
-    stats: any;
-    allocateStat: (stat: keyof Player['stats']) => void;
-    chooseClass: (cls: PlayerClass) => void;
-    reborn: () => void;
-    buyRebornUpgrade: (type: keyof Player['rebornUpgrades']) => void;
-}
+type StatsTab = 'ATTRIBUTES' | 'COMBAT' | 'PASSIVES' | 'REBORN';
 
-export const StatsPanel: React.FC<StatsPanelProps> = ({ player, stats, allocateStat, chooseClass, reborn, buyRebornUpgrade }) => {
-    const [sysStatusTab, setSysStatusTab] = useState<'ATTRIBUTES' | 'EQUIPPED' | 'CHARACTER' | 'REBORN'>('ATTRIBUTES');
-    const { barMode, reduceUi } = player.settings;
+export const StatsPanel: React.FC = () => {
+  const { player, stats, actions, setPlayer } = useGame();
+  const [activeTab, setActiveTab] = useState<StatsTab>('ATTRIBUTES');
 
-    return (
-        <div className="border border-[#00ff00]/30 bg-[#111] p-4 rounded-sm shadow-[0_0_10px_rgba(0,255,0,0.1)]">
-            <div className="flex items-center justify-between mb-4 border-b border-[#00ff00]/30 pb-2">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Terminal size={20} /> SYS_STATUS
-                </h2>
-                {reduceUi && <span className="text-[10px] text-gray-500 border border-gray-800 px-1">REDUCED UI</span>}
-            </div>
+  const classes: PlayerClass[] = ['Warrior', 'Rogue', 'Mage'];
+  const t2Classes: Record<string, PlayerClass[]> = {
+    Warrior: ['Paladin', 'Berserker'],
+    Rogue: ['Assassin', 'Ranger'],
+    Mage: ['Archmage', 'Necromancer']
+  };
 
-            <div className="flex gap-2 mb-4">
-                <button
-                    onClick={() => setSysStatusTab('ATTRIBUTES')}
-                    className={`flex-1 py-1 text-xs font-bold border ${sysStatusTab === 'ATTRIBUTES' ? 'border-[#00ff00] text-[#00ff00] bg-[#00ff00]/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
-                >
-                    ATTRIBUTES
-                </button>
-                <button
-                    onClick={() => setSysStatusTab('EQUIPPED')}
-                    className={`flex-1 py-1 text-xs font-bold border ${sysStatusTab === 'EQUIPPED' ? 'border-[#00ff00] text-[#00ff00] bg-[#00ff00]/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
-                >
-                    EQUIPPED
-                </button>
-                <button
-                    onClick={() => setSysStatusTab('CHARACTER')}
-                    className={`flex-1 py-1 text-xs font-bold border ${sysStatusTab === 'CHARACTER' ? 'border-[#00ff00] text-[#00ff00] bg-[#00ff00]/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
-                >
-                    CHARACTER
-                </button>
-                {(player.level >= 20 || player.rebornCount > 0) && (
-                    <button
-                        onClick={() => setSysStatusTab('REBORN')}
-                        className={`flex-1 py-1 text-xs font-bold border ${sysStatusTab === 'REBORN' ? 'border-purple-500 text-purple-400 bg-purple-500/10' : 'border-gray-800 text-gray-500 hover:text-gray-300'}`}
-                    >
-                        REBORN
-                    </button>
-                )}
-            </div>
+  const barMode = player.settings.barMode;
+  const toggleBarMode = () => {
+    const modes: ('bar' | 'number' | 'percent')[] = ['bar', 'number', 'percent'];
+    const nextMode = modes[(modes.indexOf(barMode) + 1) % modes.length];
+    setPlayer(p => ({ ...p, settings: { ...p.settings, barMode: nextMode } }));
+  };
 
-            <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>CLASS:</span> <span className="text-purple-400">{player.playerClass}</span></div>
-                <div className="flex justify-between"><span>STAGE:</span> <span className="text-yellow-400">{player.stage}</span></div>
-                <div className="flex justify-between"><span>LEVEL:</span> <span>{player.level}</span></div>
-                <div>
-                    <div className="flex justify-between mb-1"><span>EXP:</span></div>
-                    <ProgressBar current={player.exp} max={player.maxExp} color="bg-yellow-500" barMode={barMode} />
-                </div>
-
-                <div className="mt-2">
-                    <div className="flex justify-between mb-1">
-                        <span className="flex items-center gap-1"><Heart size={14} className="text-red-500" /> HP:</span>
-                    </div>
-                    <ProgressBar current={Math.floor(player.hp)} max={stats.maxHp} color="bg-red-500" barMode={barMode} />
-
-                    <div className="flex justify-between mb-1 mt-2">
-                        <span className="flex items-center gap-1"><Zap size={14} className="text-blue-500" /> MP:</span>
-                    </div>
-                    <ProgressBar current={Math.floor(player.mp)} max={stats.maxMp} color="bg-blue-500" barMode={barMode} />
-                </div>
-
-                <div className="mt-4 space-y-1">
-                    <div className="flex justify-between text-gray-400">
-                        <span className="flex items-center gap-1"><Sword size={14} /> ATK:</span>
-                        <span>{Math.floor(stats.totalAttack)}</span>
-                    </div>
-                    <div className="flex justify-between text-blue-400/70">
-                        <span className="flex items-center gap-1"><Zap size={14} /> M.ATK:</span>
-                        <span>{Math.floor(stats.totalMagicAttack)}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-400">
-                        <span className="flex items-center gap-1"><Shield size={14} /> DEF:</span>
-                        <span>{Math.floor(stats.totalDefense)}</span>
-                    </div>
-                    <div className="flex justify-between text-yellow-400">
-                        <span className="flex items-center gap-1"><Coins size={14} /> GOLD:</span>
-                        <span>{Math.floor(player.gold)}</span>
-                    </div>
-                </div>
-
-                {sysStatusTab === 'ATTRIBUTES' && (
-                    <>
-                        <div className="mt-4 pt-4 border-t border-gray-800">
-                            <div className="flex justify-between mb-2 text-xs text-gray-400">
-                                <span>ATTRIBUTES</span>
-                                {player.statPoints > 0 && <span className="text-yellow-400 animate-pulse">{player.statPoints} PTS</span>}
-                            </div>
-                            {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => {
-                                const baseValue = player.stats[stat];
-                                const totalValue = stats['total' + stat.charAt(0).toUpperCase() + stat.slice(1)];
-                                const bonusValue = totalValue - baseValue;
-                                return (
-                                    <div key={stat} className="flex justify-between items-center text-xs mb-1">
-                                        <span className="uppercase">
-                                            {stat}: <span className="text-white">{totalValue}</span>
-                                            {bonusValue > 0 ? (
-                                                <span className="text-[10px] text-gray-500 ml-1">({baseValue}+{bonusValue})</span>
-                                            ) : (
-                                                <span className="text-[10px] text-gray-600 ml-1">({baseValue})</span>
-                                            )}
-                                        </span>
-                                        {player.statPoints > 0 && (
-                                            <button onClick={() => allocateStat(stat)} className="text-[#00ff00] hover:text-white"><ArrowUpCircle size={14} /></button>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {!reduceUi && (
-                            <div className="mt-4 pt-4 border-t border-gray-800 text-[10px] text-gray-500 space-y-1">
-                                <div className="text-gray-400 mb-1">MILESTONE BONUSES (Every 10 pts)</div>
-                                {stats.strMilestones > 0 && <div>STR: +{stats.strMilestones * 5}% ATK, +{stats.strMilestones * 10}% Crit DMG</div>}
-                                {stats.agiMilestones > 0 && <div>AGI: +{stats.agiMilestones * 2}% Crit Rate, +{stats.agiMilestones * 2}% Dodge</div>}
-                                {stats.vitMilestones > 0 && <div>VIT: +{stats.vitMilestones * 5}% HP/DEF</div>}
-                                {stats.intMilestones > 0 && <div>INT: +{stats.intMilestones * 2} MP Regen, +{stats.intMilestones * 5}% Magic DMG</div>}
-                                {stats.lukMilestones > 0 && <div>LUK: +{stats.lukMilestones * 1}% Drop Rarity Chance</div>}
-                                {stats.strMilestones === 0 && stats.agiMilestones === 0 && stats.vitMilestones === 0 && stats.intMilestones === 0 && stats.lukMilestones === 0 && <div>None active.</div>}
-                            </div>
-                        )}
-
-                        {!reduceUi && player.playerClass !== 'Novice' && (
-                            <div className="mt-4 pt-4 border-t border-gray-800 text-[10px] text-purple-400/80 space-y-1">
-                                <div className="text-purple-400 mb-1">CLASS PASSIVE</div>
-                                {player.playerClass === 'Warrior' && <div>Toughness: +10% Base HP & DEF</div>}
-                                {player.playerClass === 'Rogue' && <div>Lethality: +10% Crit Rate, +20% Crit DMG</div>}
-                                {player.playerClass === 'Mage' && <div>Arcane Mastery: +20% Magic DMG, +5 MP Regen</div>}
-                                {player.playerClass === 'Paladin' && <div>Divine Protection: +20% HP/DEF, +10% Magic DMG</div>}
-                                {player.playerClass === 'Berserker' && <div>Bloodlust: +30% ATK, +10% Lifesteal</div>}
-                                {player.playerClass === 'Assassin' && <div>Lethality II: +20% Crit Rate, +40% Crit DMG</div>}
-                                {player.playerClass === 'Ranger' && <div>Eagle Eye: +15% Crit Rate, +15% Dodge</div>}
-                                {player.playerClass === 'Archmage' && <div>Arcane Supremacy: +40% Magic DMG, +15 MP Regen</div>}
-                                {player.playerClass === 'Necromancer' && <div>Dark Arts: +20% Magic DMG, +15% Lifesteal</div>}
-                            </div>
-                        )}
-
-                        {player.level >= 10 && player.playerClass === 'Novice' && (
-                            <div className="mt-4 pt-4 border-t border-gray-800">
-                                <span className="text-xs text-yellow-400 mb-2 block animate-pulse">CLASS UPGRADE AVAILABLE</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => chooseClass('Warrior')} className="flex-1 border border-red-500/50 text-red-400 text-xs p-1 hover:bg-red-500/20">Warrior</button>
-                                    <button onClick={() => chooseClass('Rogue')} className="flex-1 border border-green-500/50 text-green-400 text-xs p-1 hover:bg-green-500/20">Rogue</button>
-                                    <button onClick={() => chooseClass('Mage')} className="flex-1 border border-blue-500/50 text-blue-400 text-xs p-1 hover:bg-blue-500/20">Mage</button>
-                                </div>
-                            </div>
-                        )}
-
-                        {player.level >= 50 && player.stage >= 10 && ['Warrior', 'Rogue', 'Mage'].includes(player.playerClass) && (
-                            <div className="mt-4 pt-4 border-t border-gray-800">
-                                <span className="text-xs text-yellow-400 mb-2 block animate-pulse">TIER 2 CLASS UPGRADE AVAILABLE</span>
-                                <div className="flex gap-2">
-                                    {player.playerClass === 'Warrior' && (
-                                        <>
-                                            <button onClick={() => chooseClass('Paladin')} className="flex-1 border border-yellow-500/50 text-yellow-400 text-xs p-1 hover:bg-yellow-500/20">Paladin</button>
-                                            <button onClick={() => chooseClass('Berserker')} className="flex-1 border border-red-600/50 text-red-500 text-xs p-1 hover:bg-red-600/20">Berserker</button>
-                                        </>
-                                    )}
-                                    {player.playerClass === 'Rogue' && (
-                                        <>
-                                            <button onClick={() => chooseClass('Assassin')} className="flex-1 border border-green-600/50 text-green-500 text-xs p-1 hover:bg-green-600/20">Assassin</button>
-                                            <button onClick={() => chooseClass('Ranger')} className="flex-1 border border-emerald-500/50 text-emerald-400 text-xs p-1 hover:bg-emerald-500/20">Ranger</button>
-                                        </>
-                                    )}
-                                    {player.playerClass === 'Mage' && (
-                                        <>
-                                            <button onClick={() => chooseClass('Archmage')} className="flex-1 border border-blue-600/50 text-blue-500 text-xs p-1 hover:bg-blue-600/20">Archmage</button>
-                                            <button onClick={() => chooseClass('Necromancer')} className="flex-1 border border-purple-600/50 text-purple-500 text-xs p-1 hover:bg-purple-600/20">Necromancer</button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {sysStatusTab === 'EQUIPPED' && (
-                    <div className="mt-4 pt-4 border-t border-gray-800">
-                        <div className="space-y-2">
-                            {(['weapon', 'armor', 'accessory'] as const).map(slot => {
-                                const item = player.equipment[slot];
-                                return (
-                                    <div key={slot} className="border border-gray-800 p-2 text-xs flex flex-col">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-400 uppercase">{slot.substring(0, 3)}:</span>
-                                            {item ? <span className={RARITY_COLORS[item.rarity]}>{item.name} {item.upgradeLevel && item.upgradeLevel > 0 ? `+${item.upgradeLevel}` : ''}</span> : <span className="text-gray-600">NONE</span>}
-                                        </div>
-                                        {item && !reduceUi && (
-                                            <div className="text-[10px] text-gray-500 mt-1 text-right">
-                                                +{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}
-                                                {item.effect && ` | +${item.effect.value}% ${item.effect.type}`}
-                                                {item.stats && Object.entries(item.stats).map(([s, v]) => ` | ${v}${s.toUpperCase()}`)}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            {stats.activeSets.length > 0 && (
-                                <div className="mt-4 p-2 bg-purple-900/10 border border-purple-500/30">
-                                    <div className="text-[10px] font-bold text-purple-400 uppercase mb-1">Active Set Bonuses</div>
-                                    <div className="space-y-1">
-                                        {stats.activeSets.map(setName => (
-                                            <div key={setName} className="flex justify-between items-center text-[10px]">
-                                                <span className="text-purple-300 font-bold">{setName.toUpperCase()}</span>
-                                                <span className="text-gray-500">{SET_BONUSES[setName] || 'Active'}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {sysStatusTab === 'CHARACTER' && (
-                    <div className="mt-4 pt-4 border-t border-gray-800">
-                        <div className="space-y-1 text-xs text-gray-400">
-                            <div className="flex justify-between"><span>Max HP:</span> <span className="text-red-400">{Math.floor(stats.maxHp)}</span></div>
-                            <div className="flex justify-between"><span>Max MP:</span> <span className="text-blue-400">{Math.floor(stats.maxMp)}</span></div>
-                            <div className="flex justify-between"><span>Attack:</span> <span className="text-gray-300">{Math.floor(stats.totalAttack)}</span></div>
-                            <div className="flex justify-between"><span>Defense:</span> <span className="text-gray-300">{Math.floor(stats.totalDefense)}</span></div>
-                            {!reduceUi && (
-                                <>
-                                    <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{Math.floor(stats.totalMagicAttack)}</span></div>
-                                    <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{Math.floor(stats.critChance)}%</span></div>
-                                    <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(stats.finalCritDmg * 100)}%</span></div>
-                                    <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{Math.floor(stats.dodgeChance)}%{stats.dodgeChance >= 75 ? ' (MAX)' : ''}</span></div>
-                                    <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{Math.floor(stats.lifesteal)}%{stats.lifesteal >= 100 ? ' (MAX)' : ''}</span></div>
-                                    <div className="flex justify-between"><span>Reduction:</span> <span className="text-blue-400">{Math.floor(stats.reduction)}%{stats.reduction >= 80 ? ' (MAX)' : ''}</span></div>
-                                    <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{Math.floor(stats.totalLuck)}</span></div>
-                                    <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{Math.floor(stats.totalStatusChance)}/10</span></div>
-                                    <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{Math.floor((stats.setBonusGoldPct + (stats.potionGoldBonus / 100)) * 100)}%</span></div>
-                                    <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{Math.floor((stats.setBonusExpPct + (stats.potionExpBonus / 100)) * 100)}%</span></div>
-
-                                    <div className="mt-2 pt-2 border-t border-gray-800">
-                                        <div className="text-[10px] text-yellow-500/70 mb-1 uppercase">Stage Rarity Unlocks</div>
-                                        <div className="grid grid-cols-3 gap-1 text-[9px]">
-                                            <div className={player.stage >= 1 ? 'text-purple-400' : 'text-gray-600'}>STAGE 1: LEGENDARY</div>
-                                            <div className={player.stage >= 5 ? 'text-red-500' : 'text-gray-600'}>STAGE 5: MYTHIC</div>
-                                            <div className={player.stage >= 10 ? 'text-yellow-300' : 'text-gray-600'}>STAGE 10: DIVINE</div>
-                                        </div>
-                                    </div>
-                                    {player.potions.length > 0 && (
-                                        <div className="mt-2 pt-2 border-t border-gray-800">
-                                            <div className="text-[10px] text-green-500 mb-1 uppercase">Active Potions</div>
-                                            {player.potions.map((p, idx) => (
-                                                <div key={idx} className="flex justify-between text-[10px]">
-                                                    <span className="text-green-400/70">{p.type.toUpperCase()} ({Math.floor(p.duration)})</span>
-                                                    <span className="text-gray-600">{p.type === 'health' ? 'USES' : 'KILLS'}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-                {sysStatusTab === 'REBORN' && (
-                    <div className="mt-4 pt-4 border-t border-gray-800 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-purple-400">REBORN POINTS:</span>
-                            <span className="text-yellow-400 font-bold">{player.rebornPoints}</span>
-                        </div>
-
-                        <div className="space-y-2">
-                            <div className="text-[10px] text-gray-500 uppercase">Permanent Upgrades</div>
-                            <div className="grid grid-cols-1 gap-2">
-                                {(() => {
-                                    const limits: Record<string, number> = {
-                                        atkBonus: 1000, hpBonus: 1000, expBonus: 500, goldBonus: 500, statBonus: 20, pointBonus: 200
-                                    };
-                                    const upgrades = [
-                                        { key: 'atkBonus', label: 'ATK BONUS', suffix: '%' },
-                                        { key: 'hpBonus', label: 'HP BONUS', suffix: '%' },
-                                        { key: 'expBonus', label: 'EXP BONUS', suffix: '%' },
-                                        { key: 'goldBonus', label: 'GOLD BONUS', suffix: '%' },
-                                        { key: 'statBonus', label: 'EXTRA STATS', suffix: '/LV', prefix: '+' },
-                                        { key: 'pointBonus', label: 'POINTS BONUS', suffix: '%' }
-                                    ];
-                                    const costs: Record<string, number> = {
-                                        atkBonus: 5, hpBonus: 5, expBonus: 10, goldBonus: 10, statBonus: 20, pointBonus: 30
-                                    };
-                                    return upgrades.map(upg => {
-                                        const current = (player.rebornUpgrades as any)[upg.key] || 0;
-                                        const isMax = current >= limits[upg.key];
-                                        return (
-                                            <button
-                                                key={upg.key}
-                                                onClick={() => buyRebornUpgrade(upg.key as any)}
-                                                disabled={isMax}
-                                                className={`flex justify-between items-center border border-gray-800 p-2 text-[10px] hover:border-purple-500 transition-colors ${isMax ? 'opacity-50' : ''}`}
-                                            >
-                                                <span>{upg.label} ({upg.prefix || '+'}{current}{upg.suffix})</span>
-                                                <span className="text-yellow-500">{isMax ? 'MAX' : `${costs[upg.key]} RP`}</span>
-                                            </button>
-                                        );
-                                    });
-                                })()}
-                            </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-gray-800">
-                            <div className="text-[10px] text-gray-500 mb-2">
-                                Reborn resets your Level, Stage, Gold, and Inventory, but gives you Reborn Points based on your progress.
-                            </div>
-                            <button
-                                onClick={reborn}
-                                disabled={player.level < 20}
-                                className={`w-full py-2 text-xs font-bold border ${player.level >= 20 ? 'border-purple-500 text-purple-400 hover:bg-purple-500/20' : 'border-gray-800 text-gray-700 cursor-not-allowed'}`}
-                            >
-                                {player.level >= 20 ? `EXECUTE REBORN.EXE (+${stats.nextRebornPoints} RP)` : 'LEVEL 20 REQUIRED'}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+  return (
+    <div className="flex flex-col gap-4">
+      {/* OS Status Header */}
+      <div className="border border-[#00ff00]/30 bg-[#050505] p-4 rounded-sm relative overflow-hidden group shadow-[0_0_15px_rgba(0,255,0,0.05)]">
+        <div className="absolute top-0 left-0 w-1 h-full bg-[#00ff00]/20 group-hover:bg-[#00ff00]/40 transition-colors"></div>
+        <div className="flex justify-between items-center mb-4 border-b border-[#00ff00]/10 pb-2">
+          <div className="flex items-center gap-2">
+            <Activity size={16} className="text-[#00ff00]/60" />
+            <span className="text-xs font-bold uppercase tracking-[0.2em]">SYS_STATUS</span>
+          </div>
+          <button 
+            onClick={toggleBarMode}
+            className="text-[9px] border border-[#00ff00]/20 px-2 py-0.5 hover:bg-[#00ff00]/10 text-[#00ff00]/40 hover:text-[#00ff00] transition-all uppercase"
+          >
+            Mode: {barMode}
+          </button>
         </div>
-    );
+
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 border border-[#00ff00]/20 bg-[#00ff00]/5 rounded-sm overflow-hidden flex-shrink-0 relative">
+            {player.photoURL ? (
+              <img src={player.photoURL} alt="User" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[#00ff00]/20 font-bold text-xl">?</div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold truncate uppercase tracking-widest text-[#00ff00]">{player.displayName || 'GUEST_01'}</div>
+            <div className="text-[10px] text-[#00ff00]/60 font-bold uppercase tracking-tighter">
+              {player.playerClass} | STAGE {player.stage}
+            </div>
+            <div className="text-[10px] text-[#00ff00]/40 uppercase">Level {player.level}</div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <ProgressBar
+            label="EXP"
+            current={player.exp}
+            max={player.maxExp}
+            color="bg-yellow-500"
+            barMode={barMode}
+            height="h-1.5"
+          />
+          <ProgressBar
+            label="HEALTH"
+            current={Math.floor(player.hp)}
+            max={stats.maxHp}
+            color="bg-red-500"
+            barMode={barMode}
+            height="h-1.5"
+          />
+          <ProgressBar
+            label="ENERGY"
+            current={Math.floor(player.mp)}
+            max={stats.maxMp}
+            color="bg-blue-500"
+            barMode={barMode}
+            height="h-1.5"
+          />
+        </div>
+
+        <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-[#00ff00]/10 text-center">
+          <div>
+            <div className="text-[8px] text-[#00ff00]/40 uppercase">Atk</div>
+            <div className="text-[10px] font-bold">{stats.totalAttack}</div>
+          </div>
+          <div>
+            <div className="text-[8px] text-cyan-500/40 uppercase">M.Atk</div>
+            <div className="text-[10px] font-bold text-cyan-400">{stats.totalMagicAttack}</div>
+          </div>
+          <div>
+            <div className="text-[8px] text-[#00ff00]/40 uppercase">Def</div>
+            <div className="text-[10px] font-bold">{stats.totalDefense}</div>
+          </div>
+          <div>
+            <div className="text-[8px] text-yellow-500/40 uppercase">Gold</div>
+            <div className="text-[10px] font-bold text-yellow-500">{player.gold}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex bg-[#00ff00]/5 p-1 rounded-sm border border-[#00ff00]/10">
+        {(['ATTRIBUTES', 'COMBAT', 'PASSIVES', 'REBORN'] as StatsTab[]).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-1.5 text-[9px] font-bold transition-all uppercase tracking-tighter ${activeTab === tab ? 'bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/30' : 'text-[#00ff00]/30 hover:text-[#00ff00]/60 border border-transparent'}`}
+          >
+            {tab === 'ATTRIBUTES' ? 'ATTR' : tab === 'COMBAT' ? 'STAT' : tab === 'PASSIVES' ? 'BUFF' : 'RB'}
+          </button>
+        ))}
+      </div>
+
+      {/* Content Area */}
+      <div className="border border-[#00ff00]/20 bg-[#050505] p-4 rounded-sm min-h-[300px]">
+        {activeTab === 'ATTRIBUTES' && (
+          <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] text-[#00ff00]/40 uppercase tracking-[0.2em]">Primary_Attributes</span>
+              {player.statPoints > 0 && (
+                <span className="text-[10px] text-yellow-500 font-bold animate-pulse">{player.statPoints} PTS AVAILABLE</span>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => {
+                const total = stats[`total${stat.charAt(0).toUpperCase()}${stat.slice(1)}` as keyof typeof stats];
+                const base = player.stats[stat];
+                const bonus = total - base;
+                
+                return (
+                  <div key={stat} className="flex justify-between items-center group">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-[#00ff00]/80 uppercase group-hover:text-[#00ff00] transition-colors">{stat}</span>
+                      <span className="text-[9px] text-[#00ff00]/30 uppercase italic">{stats[`${stat}Milestones` as keyof typeof stats]} Milestones</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right flex flex-col items-end" title={`Base: ${base} | Items: +${bonus}`}>
+                        <span className="text-sm font-mono">{total}</span>
+                        {bonus > 0 && <span className="text-[8px] text-cyan-400 font-bold">({base} + {bonus})</span>}
+                      </div>
+                      {player.statPoints > 0 && (
+                        <button 
+                          onClick={() => actions.allocateStat(stat)}
+                          className="w-5 h-5 border border-[#00ff00]/30 flex items-center justify-center hover:bg-[#00ff00]/20 transition-all rounded-sm"
+                        >
+                          <ArrowUpCircle size={12} className="text-[#00ff00]" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Milestones Info */}
+            <div className="mt-4 pt-4 border-t border-[#00ff00]/10">
+              <div className="text-[9px] text-[#00ff00]/40 uppercase mb-2 tracking-widest flex items-center gap-1">
+                <Info size={10} /> Active_Milestones
+              </div>
+              <div className="space-y-1.5">
+                {Object.entries(stats.milestoneBonuses).map(([key, bonus]) => (
+                  bonus && (
+                    <div key={key} className="text-[10px] flex gap-2">
+                      <span className="text-[#00ff00]/60 font-bold uppercase w-8">{key}:</span>
+                      <span className="text-[#00ff00]/40">{bonus as string}</span>
+                    </div>
+                  )
+                ))}
+                {!Object.values(stats.milestoneBonuses).some(Boolean) && (
+                  <div className="text-[9px] text-[#00ff00]/20 italic">No milestones achieved. (10 pts req.)</div>
+                )}
+              </div>
+            </div>
+
+            {/* Class Selection UI */}
+            {player.level >= 10 && player.playerClass === 'Novice' && (
+              <div className="mt-4 pt-4 border-t border-[#00ff00]/10 animate-pulse">
+                <div className="text-[10px] text-cyan-400 mb-2 uppercase text-center font-bold tracking-widest">Specialization_Available</div>
+                <div className="flex gap-2">
+                  {classes.map(cls => (
+                    <button key={cls} onClick={() => actions.chooseClass(cls)} className="flex-1 py-1.5 border border-cyan-400/30 text-cyan-400 text-[10px] font-bold hover:bg-cyan-400/10 transition-all uppercase">
+                      {cls}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {player.level >= 50 && player.stage >= 10 && ['Warrior', 'Rogue', 'Mage'].includes(player.playerClass) && (
+              <div className="mt-4 pt-4 border-t border-[#00ff00]/10">
+                <div className="text-[10px] text-purple-400 mb-2 uppercase text-center font-bold tracking-widest">Tier_2_Advancement</div>
+                <div className="flex gap-2">
+                  {t2Classes[player.playerClass].map(cls => (
+                    <button key={cls} onClick={() => actions.chooseClass(cls)} className="flex-1 py-1.5 border border-purple-400/30 text-purple-400 text-[10px] font-bold hover:bg-purple-400/10 transition-all uppercase">
+                      {cls}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'COMBAT' && (
+          <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+            <div className="text-[10px] text-[#00ff00]/40 uppercase tracking-[0.2em] mb-2 border-b border-[#00ff00]/10 pb-1">Derived_Combat_Stats</div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Magic Attack</span>
+                <span className="font-mono text-cyan-400">{stats.totalMagicAttack}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Critical Chance</span>
+                <span className="font-mono text-yellow-500">{stats.critChance}%</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Critical Damage</span>
+                <span className="font-mono text-yellow-500">{Math.floor(stats.finalCritDmg * 100)}%</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Dodge Chance</span>
+                <span className="font-mono text-green-400">{stats.dodgeChance}%</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Lifesteal</span>
+                <span className="font-mono text-red-500">{stats.lifesteal}%</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Status Chance</span>
+                <span className="font-mono text-blue-400">{stats.totalStatusChance}/10</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Luck Rating</span>
+                <span className="font-mono text-emerald-400">{stats.totalLuck}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs pt-2 border-t border-[#00ff00]/5">
+                <span className="text-[#00ff00]/60 uppercase">Bonus Gold</span>
+                <span className="font-mono text-yellow-600">+{Math.floor(stats.setBonusGoldPct * 100)}%</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[#00ff00]/60 uppercase">Bonus EXP</span>
+                <span className="font-mono text-blue-300">+{Math.floor(stats.setBonusExpPct * 100)}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'PASSIVES' && (
+          <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+            <div>
+              <div className="text-[10px] text-[#00ff00]/40 uppercase tracking-[0.2em] mb-2 border-b border-[#00ff00]/10 pb-1 flex items-center gap-2">
+                <ShieldCheck size={12} /> Class_Passives
+              </div>
+              <div className="space-y-2">
+                {player.playerClass === 'Novice' ? (
+                  <div className="text-[10px] text-[#00ff00]/20 italic">No class specialization detected.</div>
+                ) : (
+                  <div className="text-[10px] p-2 bg-[#00ff00]/5 border border-[#00ff00]/10 rounded-sm">
+                    <div className="text-[#00ff00]/80 font-bold uppercase mb-1">
+                      {player.playerClass === 'Warrior' ? 'TOUGHNESS' :
+                       player.playerClass === 'Rogue' ? 'LETHALITY' :
+                       player.playerClass === 'Mage' ? 'ARCANE_MASTERY' :
+                       player.playerClass === 'Paladin' ? 'DIVINE_PROTECTION' :
+                       player.playerClass === 'Berserker' ? 'BLOODLUST' :
+                       player.playerClass === 'Assassin' ? 'LETHALITY_II' :
+                       player.playerClass === 'Ranger' ? 'EAGLE_EYE' :
+                       player.playerClass === 'Archmage' ? 'ARCANE_SUPREMACY' :
+                       player.playerClass === 'Necromancer' ? 'DARK_ARTS' : 'UNIDENTIFIED'}
+                    </div>
+                    <div className="text-[#00ff00]/40 leading-relaxed uppercase tracking-tighter">
+                      {player.playerClass === 'Warrior' ? '+10% Base HP & DEF' :
+                       player.playerClass === 'Rogue' ? '+10% Crit Rate, +20% Crit DMG' :
+                       player.playerClass === 'Mage' ? '+20% Magic DMG, +5 MP Regen' :
+                       player.playerClass === 'Paladin' ? '+20% HP/DEF, +10% Magic DMG' :
+                       player.playerClass === 'Berserker' ? '+30% ATK, +10% Lifesteal' :
+                       player.playerClass === 'Assassin' ? '+20% Crit Rate, +40% Crit DMG' :
+                       player.playerClass === 'Ranger' ? '+15% Crit Rate, +15% Dodge' :
+                       player.playerClass === 'Archmage' ? '+40% Magic DMG, +15 MP Regen' :
+                       player.playerClass === 'Necromancer' ? '+20% Magic DMG, +15% Lifesteal' : 'Calculating...'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-yellow-500/40 uppercase tracking-[0.2em] mb-2 border-b border-yellow-500/10 pb-1 flex items-center gap-2">
+                <Trophy size={12} /> Set_Bonuses
+              </div>
+              <div className="space-y-2">
+                {stats.activeSets.length > 0 ? (
+                  stats.activeSets.map(set => (
+                    <div key={set} className="flex justify-between items-center text-[10px] p-1.5 bg-yellow-500/5 border border-yellow-500/10 rounded-sm">
+                      <span className="text-yellow-500 font-bold uppercase tracking-widest">{set}</span>
+                      <span className="text-[#00ff00]/60 font-bold">ACTIVE</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[10px] text-[#00ff00]/20 italic py-2 text-center border border-dashed border-[#00ff00]/5 uppercase">No set resonance detected.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'REBORN' && (
+          <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+            <div className="flex justify-between items-end border-b border-[#00ff00]/10 pb-2">
+              <div>
+                <div className="text-[8px] text-[#00ff00]/40 uppercase tracking-widest">Global_Cycles</div>
+                <div className="text-xl font-bold font-mono">{player.rebornCount}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[8px] text-yellow-500 uppercase tracking-widest">Reborn_Points</div>
+                <div className="text-xl font-bold font-mono text-yellow-500">{Math.floor(player.rebornPoints)}</div>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="text-[9px] text-[#00ff00]/40 uppercase tracking-[0.2em] mb-1">Permanent_Upgrades</div>
+              <div className="grid grid-cols-2 gap-2">
+                {(['atkBonus', 'hpBonus', 'expBonus', 'goldBonus', 'statBonus', 'pointBonus'] as const).map(type => (
+                  <button
+                    key={type}
+                    onClick={() => actions.buyRebornUpgrade(type)}
+                    className="flex flex-col p-2 border border-[#00ff00]/10 bg-[#00ff00]/2 hover:border-[#00ff00]/40 hover:bg-[#00ff00]/5 transition-all group"
+                  >
+                    <span className="text-[8px] text-[#00ff00]/40 uppercase tracking-tighter group-hover:text-[#00ff00]/60">{type.replace('Bonus', '')}</span>
+                    <span className="text-[10px] font-bold text-yellow-500/80">+{player.rebornUpgrades[type]}{type === 'statBonus' ? '' : '%'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-red-500/20">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[9px] text-[#00ff00]/40 uppercase tracking-widest">Projected_RP_Yield</span>
+                <span className="text-sm font-bold text-yellow-500 font-mono">+{stats.nextRebornPoints} RP</span>
+              </div>
+              <button
+                onClick={actions.reborn}
+                disabled={player.level < 20}
+                className={`w-full py-3 text-[10px] font-bold border transition-all uppercase tracking-[0.2em] ${player.level >= 20 ? 'border-red-500 text-red-500 hover:bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-gray-800 text-gray-800 opacity-30 cursor-not-allowed'}`}
+              >
+                Execute_Reborn_Sequence
+              </button>
+              {player.level < 20 && (
+                <div className="text-[8px] text-center mt-2 text-gray-600 uppercase tracking-tighter italic">Error: Insufficient data levels (LV.20 required)</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };

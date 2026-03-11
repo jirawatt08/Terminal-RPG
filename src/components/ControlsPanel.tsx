@@ -1,21 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useGame } from '../context/GameContext';
 import { Zap, Play, Skull, Square, ChevronRight, Home, Info, Settings, Trophy, LogIn, LogOut, User } from 'lucide-react';
-import { Player, GameState } from '../types';
 import { CLASS_SKILLS } from '../constants';
 
-interface ControlsPanelProps {
-    player: Player;
-    setPlayer: React.Dispatch<React.SetStateAction<Player>>;
-    gameState: GameState;
-    stats: any;
-    actions: any;
-    queuedSkillRef: React.MutableRefObject<boolean>;
-    isLoggingIn: boolean;
-    lastSaveTime: Date | null;
-}
+export const ControlsPanel: React.FC = () => {
+    const { 
+        player, setPlayer, gameState, stats, actions, 
+        refs, isLoggingIn, lastSaveTime 
+    } = useGame();
+    const [showUserMenu, setShowUserMenu] = useState(false);
 
-export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer, gameState, stats, actions, queuedSkillRef, isLoggingIn, lastSaveTime }) => {
-    const [showUserMenu, setShowUserMenu] = React.useState(false);
+    const healCost = Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05));
 
     return (
         <div className="w-full md:w-1/4 flex flex-col gap-4 md:h-full">
@@ -174,11 +169,11 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                     <div className="pt-4 border-t border-gray-800 space-y-3">
                         <button
                             onClick={actions.heal}
-                            disabled={player.gold < Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05)) || (player.hp >= stats.maxHp && player.mp >= stats.maxMp) || gameState === 'DEAD'}
+                            disabled={player.gold < healCost || (player.hp >= stats.maxHp && player.mp >= stats.maxMp) || gameState === 'DEAD'}
                             className="w-full flex items-center justify-between p-3 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                         >
                             <span>./heal</span>
-                            <span className="text-xs">-{Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05))}G</span>
+                            <span className="text-xs">-{healCost}G</span>
                         </button>
 
                         {(player.autoHealUnlocked || player.rebornCount > 0) && (
@@ -188,8 +183,8 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                                     <label className="flex items-center gap-1 cursor-pointer text-[10px] text-gray-400 hover:text-green-400 transition-colors">
                                         <input
                                             type="checkbox"
-                                            checked={player.autoHealUnlocked}
-                                            onChange={(e) => setPlayer(p => ({ ...p, autoHealUnlocked: e.target.checked }))}
+                                            checked={player.autoHealEnabled}
+                                            onChange={(e) => setPlayer(p => ({ ...p, autoHealEnabled: e.target.checked }))}
                                             className="accent-green-500"
                                         />
                                         ENB
@@ -205,7 +200,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                                         min="10"
                                         max="90"
                                         step="5"
-                                        disabled={!player.autoHealUnlocked}
+                                        disabled={!player.autoHealEnabled}
                                         value={player.autoHealThreshold}
                                         onChange={(e) => setPlayer(p => ({ ...p, autoHealThreshold: parseInt(e.target.value) }))}
                                         className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-500 disabled:opacity-30"
@@ -238,7 +233,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({ player, setPlayer,
                                 </label>
                             </div>
                             <button
-                                onClick={() => { queuedSkillRef.current = true; }}
+                                onClick={() => { refs.queuedSkillRef.current = true; }}
                                 disabled={player.mp < CLASS_SKILLS[player.playerClass]!.cost || gameState === 'DEAD' || gameState === 'IDLE'}
                                 className="w-full flex items-center justify-between p-3 border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                             >

@@ -110,6 +110,7 @@ export interface Player {
   inventoryLimit: number;
   autoSellUnlocked: boolean;
   autoHealUnlocked: boolean;
+  autoHealEnabled: boolean;
   autoHealThreshold: number; // HP % to trigger auto-heal
   skillCooldown: number;
   statusEffects: StatusEffect[];

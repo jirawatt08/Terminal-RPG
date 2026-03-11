@@ -1,103 +1,173 @@
 import React, { useState } from 'react';
-import { Package, Lock, Unlock } from 'lucide-react';
-import { Player, Item, Rarity } from '../types';
+import { useGame } from '../context/GameContext';
+import { Item, Rarity } from '../types';
 import { RARITY_COLORS } from '../constants';
+import { Package, Filter, SortAsc, Lock, Shield } from 'lucide-react';
 
-interface InventoryPanelProps {
-    player: Player;
-    equipItem: (item: Item) => void;
-    getEquipmentValue: (item: Item | null) => number;
-    toggleItemLock: (item: Item) => void;
-}
+type SortMode = 'RARITY' | 'VALUE' | 'NAME';
 
-const RARITY_WEIGHT: Record<Rarity, number> = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythic: 6, Divine: 7 };
+export const InventoryPanel: React.FC = () => {
+  const { player, stats, actions } = useGame();
+  const [filter, setFilter] = useState<Rarity | 'ALL'>('ALL');
+  const [sortBy, setSortMode] = useState<SortMode>('RARITY');
 
-export const InventoryPanel: React.FC<InventoryPanelProps> = ({ player, equipItem, getEquipmentValue, toggleItemLock }) => {
-    const [inventorySort, setInventorySort] = useState<'STAT' | 'RARITY' | 'NAME'>('STAT');
+  const rarities: (Rarity | 'ALL')[] = ['ALL', 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Divine'];
+  const rarityOrder: Record<Rarity, number> = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4, Mythic: 5, Divine: 6 };
 
-    const sortedInventory = [...player.inventory].sort((a, b) => {
-        if (inventorySort === 'NAME') {
-            return a.name.localeCompare(b.name);
-        } else if (inventorySort === 'STAT') {
-            const valA = getEquipmentValue(a);
-            const valB = getEquipmentValue(b);
-            if (valA !== valB) return valB - valA;
-            return RARITY_WEIGHT[b.rarity] - RARITY_WEIGHT[a.rarity];
-        } else {
-            if (RARITY_WEIGHT[a.rarity] !== RARITY_WEIGHT[b.rarity]) return RARITY_WEIGHT[b.rarity] - RARITY_WEIGHT[a.rarity];
-            return getEquipmentValue(b) - getEquipmentValue(a);
-        }
+  const sortedInventory = [...player.inventory]
+    .filter(i => filter === 'ALL' || i.rarity === filter)
+    .sort((a, b) => {
+      if (sortBy === 'RARITY') return rarityOrder[b.rarity] - rarityOrder[a.rarity];
+      if (sortBy === 'VALUE') return b.value - a.value;
+      return a.name.localeCompare(b.name);
     });
 
-    return (
-        <div className="border border-[#00ff00]/30 bg-[#111] p-4 rounded-sm flex-1">
-            <h2 className="text-xl font-bold mb-4 border-b border-[#00ff00]/30 pb-2 flex items-center gap-2">
-                <Package size={20} /> INVENTORY
-            </h2>
-
-            <div>
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-xs text-gray-500">ITEMS ({player.inventory.length}/{player.inventoryLimit})</h3>
-                    <div className="flex gap-1">
-                        <button
-                            onClick={() => setInventorySort('STAT')}
-                            className={`text-[10px] px-2 py-0.5 border ${inventorySort === 'STAT' ? 'border-[#00ff00] text-[#00ff00]' : 'border-gray-700 text-gray-500'}`}
-                        >
-                            STAT
-                        </button>
-                        <button
-                            onClick={() => setInventorySort('RARITY')}
-                            className={`text-[10px] px-2 py-0.5 border ${inventorySort === 'RARITY' ? 'border-[#00ff00] text-[#00ff00]' : 'border-gray-700 text-gray-500'}`}
-                        >
-                            RARITY
-                        </button>
-                        <button
-                            onClick={() => setInventorySort('NAME')}
-                            className={`text-[10px] px-2 py-0.5 border ${inventorySort === 'NAME' ? 'border-[#00ff00] text-[#00ff00]' : 'border-gray-700 text-gray-500'}`}
-                        >
-                            NAME
-                        </button>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    {sortedInventory.length === 0 && <div className="text-gray-600 text-xs text-center py-4">EMPTY</div>}
-                    {sortedInventory.map(item => (
-                        <div key={item.id} className="border border-gray-800 p-2 text-xs group hover:border-[#00ff00]/50 transition-colors">
-                            <div className="flex justify-between mb-1">
-                                <span className={RARITY_COLORS[item.rarity]}>
-                                    <span className="text-gray-500 mr-1">[{item.type.substring(0, 3).toUpperCase()}]</span>
-                                    {item.name} {item.upgradeLevel && item.upgradeLevel > 0 ? `+${item.upgradeLevel}` : ''}
-                                </span>
-                                <span className="text-gray-400">+{Math.floor(item.value)} {item.type === 'Weapon' ? 'ATK' : 'DEF'}</span>
-                            </div>
-                            <div className="flex justify-between items-center mb-1">
-                                {item.effect ? <div className="text-[10px] text-blue-400">+{Math.floor(item.effect.value)}% {item.effect.type}</div> : <div></div>}
-                                {item.stats && (
-                                    <div className="text-[10px] text-gray-500 uppercase flex gap-1">
-                                        {Object.entries(item.stats).map(([s, v]) => (
-                                            <span key={s}>{v}{s.toUpperCase()}</span>
-                                        ))}
-                                    </div>
-                                )}
-                                {item.locked && <Lock size={10} className="text-red-500" />}
-                            </div>
-                            <div className="flex justify-between items-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-yellow-500">{Math.floor(item.sellPrice)}G</span>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); toggleItemLock(item); }}
-                                        className={`p-1 border ${item.locked ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-gray-700 text-gray-500 hover:border-[#00ff00]/30'} rounded`}
-                                        title={item.locked ? 'Unlock' : 'Lock'}
-                                    >
-                                        {item.locked ? <Lock size={12} /> : <Unlock size={12} />}
-                                    </button>
-                                    <button onClick={() => equipItem(item)} className="px-2 py-1 bg-[#00ff00]/10 hover:bg-[#00ff00]/30 text-[#00ff00] rounded cursor-pointer">Equip</button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Inventory Container */}
+      <div className="border border-[#00ff00]/30 bg-[#050505] p-4 rounded-sm flex flex-col group h-full">
+        <div className="flex justify-between items-center mb-4 border-b border-[#00ff00]/10 pb-2">
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-[#00ff00]/60" />
+            <span className="text-xs font-bold uppercase tracking-[0.2em]">Storage_Unit</span>
+          </div>
+          <div className="text-[10px] text-[#00ff00]/40 font-mono">
+            {player.inventory.length}/{player.inventoryLimit}
+          </div>
         </div>
-    );
+
+        {/* Filters & Sorting */}
+        <div className="space-y-3 mb-4">
+          <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar border-b border-[#00ff00]/5">
+            {rarities.map(r => (
+              <button
+                key={r}
+                onClick={() => setFilter(r)}
+                className={`px-2 py-1 text-[8px] border transition-all uppercase tracking-tighter whitespace-nowrap ${filter === r ? 'bg-[#00ff00]/20 border-[#00ff00]/50 text-[#00ff00]' : 'border-transparent text-[#00ff00]/30 hover:text-[#00ff00]/60'}`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex justify-between items-center bg-[#00ff00]/5 p-1.5 rounded-sm border border-[#00ff00]/10">
+            <div className="flex items-center gap-2 text-[9px] text-[#00ff00]/40 uppercase font-bold px-1">
+              <SortAsc size={10} /> Sort_By
+            </div>
+            <div className="flex gap-2">
+              {(['RARITY', 'VALUE', 'NAME'] as SortMode[]).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setSortMode(mode)}
+                  className={`text-[8px] font-bold transition-all uppercase tracking-widest px-2 py-0.5 rounded-sm ${sortBy === mode ? 'text-yellow-500 bg-yellow-500/10' : 'text-[#00ff00]/20 hover:text-[#00ff00]/40'}`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Item List */}
+        <div className="grid grid-cols-1 gap-2 overflow-y-auto max-h-[350px] pr-1 scrollbar-thin scrollbar-thumb-[#00ff00]/10">
+          {sortedInventory.length > 0 ? (
+            sortedInventory.map((item) => (
+              <div 
+                key={item.id} 
+                className="p-2 border border-[#00ff00]/10 bg-[#00ff00]/2 rounded-sm group relative hover:border-[#00ff00]/40 transition-all hover:bg-[#00ff00]/5"
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${RARITY_COLORS[item.rarity]}`}>{item.name}</span>
+                  <span className="text-[9px] text-[#00ff00]/30 font-mono">+{item.upgradeLevel || 0}</span>
+                </div>
+                
+                <div className="flex justify-between items-end">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[8px] text-[#00ff00]/40 uppercase tracking-tighter">{item.type}</span>
+                      <span className="text-[9px] text-[#00ff00]/80 font-bold">
+                        +{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 mt-0.5">
+                      {item.stats && Object.entries(item.stats).map(([stat, val]) => (
+                        <span key={stat} className="text-[8px] text-cyan-400/60 uppercase font-bold">{stat}:{val}</span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => actions.toggleItemLock(item)}
+                      className={`text-[8px] px-1.5 py-0.5 border transition-all ${item.locked ? 'border-red-500/40 text-red-500 bg-red-500/5' : 'border-[#00ff00]/10 text-[#00ff00]/20 hover:text-[#00ff00]/60'}`}
+                    >
+                      {item.locked ? 'LKD' : 'LCK'}
+                    </button>
+                    <button 
+                      onClick={() => actions.equipItem(item)}
+                      className="text-[8px] px-2 py-0.5 border border-[#00ff00]/30 bg-[#00ff00]/10 text-[#00ff00] font-bold hover:bg-[#00ff00]/30 transition-all uppercase"
+                    >
+                      Mount
+                    </button>
+                  </div>
+                </div>
+                {item.effect && (
+                  <div className="mt-1.5 pt-1 border-t border-[#00ff00]/5 text-[8px] text-blue-400/60 uppercase tracking-widest italic">
+                    PROG: {item.effect.type} +{item.effect.value}%
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="text-[10px] text-[#00ff00]/20 italic text-center py-12 border border-dashed border-[#00ff00]/10 uppercase tracking-widest">
+              No data packets found.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Equipment Slots */}
+      <div className="border border-[#00ff00]/30 bg-[#050505] p-4 rounded-sm">
+        <div className="flex items-center gap-2 mb-4 border-b border-[#00ff00]/10 pb-2">
+          <Shield size={14} className="text-[#00ff00]/60" />
+          <span className="text-xs font-bold uppercase tracking-[0.2em]">Active_Modules</span>
+        </div>
+        <div className="space-y-3">
+          {(['weapon', 'armor', 'accessory'] as const).map(type => {
+            const item = player.equipment[type];
+            return (
+              <div key={type} className="flex flex-col gap-1">
+                <div className="text-[8px] text-[#00ff00]/30 uppercase tracking-widest px-1 flex justify-between">
+                  <span>{type}</span>
+                  {item && <span className="text-yellow-600/60">VAL: {stats.getEquipmentValue(item)}</span>}
+                </div>
+                {item ? (
+                  <div className="p-2 border border-[#00ff00]/20 bg-[#00ff00]/5 rounded-sm flex justify-between items-center group relative hover:border-[#00ff00]/40 transition-all">
+                    <div className="flex flex-col min-w-0">
+                      <span className={`text-[10px] font-bold uppercase tracking-widest truncate ${RARITY_COLORS[item.rarity]}`}>{item.name}</span>
+                      <div className="flex gap-2">
+                        {item.stats && Object.entries(item.stats).map(([s, v]) => (
+                          <span key={s} className="text-[8px] text-[#00ff00]/40 uppercase">{s}:{v}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => actions.toggleItemLock(item)}
+                      className={`text-[8px] p-1 border transition-all ${item.locked ? 'border-red-500/40 text-red-500' : 'border-transparent text-[#00ff00]/20 hover:text-[#00ff00]/60'}`}
+                    >
+                      {item.locked ? <Lock size={10} /> : <Filter size={10} />}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-2 border border-[#00ff00]/5 bg-transparent rounded-sm text-[9px] text-[#00ff00]/10 italic uppercase tracking-tighter">
+                    Slot_Offline
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 };
