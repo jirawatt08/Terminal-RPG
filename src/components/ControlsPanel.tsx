@@ -218,7 +218,7 @@ export const ControlsPanel: React.FC = () => {
                         </button>
                     </div>
 
-                    {player.playerClass !== 'Novice' && CLASS_SKILLS[player.playerClass] && (
+                    {CLASS_SKILLS[player.playerClass] && (
                         <div className="pt-4 border-t border-gray-800 space-y-2">
                             <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
                                 <span>CLASS SKILL</span>
@@ -251,7 +251,7 @@ export const ControlsPanel: React.FC = () => {
                                                 <span className="font-bold uppercase tracking-widest">{skill.name}</span>
                                                 <div className="flex gap-2 items-center">
                                                     <span className="text-[9px] opacity-60">
-                                                        {skill.mult}x {scalingStat} {skill.aoe ? '(AOE)' : ''}
+                                                        {skill.mult}x {scalingStat} | {skill.aoe ? 'AOE' : 'SINGLE'}
                                                     </span>
                                                     {skill.statusEffect && (
                                                         <span className="text-[8px] text-cyan-400 font-bold uppercase">

@@ -55,17 +55,17 @@ export const StatsPanel: React.FC = () => {
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold truncate uppercase tracking-widest text-[#00ff00]">{player.displayName || 'GUEST_01'}</div>
             <div className="text-[10px] text-[#00ff00]/60 font-bold uppercase tracking-tighter">
-              {player.playerClass} | STAGE {player.stage}
+              {player.playerClass} | STAGE {Math.floor(player.stage)}
             </div>
-            <div className="text-[10px] text-[#00ff00]/40 uppercase">Level {player.level}</div>
+            <div className="text-[10px] text-[#00ff00]/40 uppercase">Level {Math.floor(player.level)}</div>
           </div>
         </div>
 
         <div className="space-y-3">
           <ProgressBar
             label="EXP"
-            current={player.exp}
-            max={player.maxExp}
+            current={Math.floor(player.exp)}
+            max={Math.floor(player.maxExp)}
             color="bg-yellow-500"
             barMode={barMode}
             height="h-1.5"
@@ -73,7 +73,7 @@ export const StatsPanel: React.FC = () => {
           <ProgressBar
             label="HEALTH"
             current={Math.floor(player.hp)}
-            max={stats.maxHp}
+            max={Math.floor(stats.maxHp)}
             color="bg-red-500"
             barMode={barMode}
             height="h-1.5"
@@ -81,7 +81,7 @@ export const StatsPanel: React.FC = () => {
           <ProgressBar
             label="ENERGY"
             current={Math.floor(player.mp)}
-            max={stats.maxMp}
+            max={Math.floor(stats.maxMp)}
             color="bg-blue-500"
             barMode={barMode}
             height="h-1.5"
@@ -91,19 +91,19 @@ export const StatsPanel: React.FC = () => {
         <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-[#00ff00]/10 text-center">
           <div>
             <div className="text-[8px] text-[#00ff00]/40 uppercase">Atk</div>
-            <div className="text-[10px] font-bold">{stats.totalAttack}</div>
+            <div className="text-[10px] font-bold">{Math.floor(stats.totalAttack)}</div>
           </div>
           <div>
             <div className="text-[8px] text-cyan-500/40 uppercase">M.Atk</div>
-            <div className="text-[10px] font-bold text-cyan-400">{stats.totalMagicAttack}</div>
+            <div className="text-[10px] font-bold text-cyan-400">{Math.floor(stats.totalMagicAttack)}</div>
           </div>
           <div>
             <div className="text-[8px] text-[#00ff00]/40 uppercase">Def</div>
-            <div className="text-[10px] font-bold">{stats.totalDefense}</div>
+            <div className="text-[10px] font-bold">{Math.floor(stats.totalDefense)}</div>
           </div>
           <div>
             <div className="text-[8px] text-yellow-500/40 uppercase">Gold</div>
-            <div className="text-[10px] font-bold text-yellow-500">{player.gold}</div>
+            <div className="text-[10px] font-bold text-yellow-500">{Math.floor(player.gold)}</div>
           </div>
         </div>
       </div>

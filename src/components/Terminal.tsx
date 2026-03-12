@@ -1,4 +1,4 @@
-import React, { RefObject } from 'react';
+import React, { useMemo, RefObject } from 'react';
 import { Skull } from 'lucide-react';
 import { LogEntry, Enemy, GameState } from '../types';
 
@@ -14,13 +14,13 @@ interface TerminalProps {
 }
 
 export const Terminal: React.FC<TerminalProps> = ({ logs, activeTab, setActiveTab, gameState, currentEnemies, logsEndRef }) => {
-  const filteredLogs = logs.filter(log => {
+  const filteredLogs = useMemo(() => logs.filter(log => {
     if (activeTab === 'ALL') return true;
-    if (activeTab === 'FIGHT') return log.type === 'combat' || log.type === 'damage' || log.type === 'heal';
+    if (activeTab === 'FIGHT') return log.type === 'combat' || log.type === 'heal';
     if (activeTab === 'DROP') return log.type === 'drop' || log.type === 'loot';
     if (activeTab === 'SELL') return log.type === 'sell';
     return true;
-  });
+  }), [logs, activeTab]);
 
   return (
     <>
@@ -89,7 +89,7 @@ export const Terminal: React.FC<TerminalProps> = ({ logs, activeTab, setActiveTa
               </div>
               <div className="flex justify-between items-center">
                 <div className="text-[10px] text-gray-500">
-                  {Math.floor(Math.max(0, enemy.hp))} / {enemy.maxHp} HP
+                  {Math.floor(Math.max(0, enemy.hp))} / {Math.floor(enemy.maxHp)} HP
                 </div>
                 {enemy.skill && (
                   <div className="text-[9px] text-orange-400">

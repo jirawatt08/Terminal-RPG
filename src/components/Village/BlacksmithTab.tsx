@@ -18,7 +18,7 @@ export const BlacksmithTab: React.FC = () => {
                         {item.name} {currentLevel > 0 ? `+${currentLevel}` : ''}
                     </div>
                     <div className="text-[10px] text-[#00ff00]/40 uppercase tracking-tighter">
-                        Base Value: {stats.getEquipmentValue(item)}
+                        Base Value: {Math.floor(stats.getEquipmentValue(item))}
                     </div>
                 </div>
                 <button

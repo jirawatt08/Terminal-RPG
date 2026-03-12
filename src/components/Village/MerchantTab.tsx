@@ -148,11 +148,11 @@ export const MerchantTab: React.FC = () => {
                                 {item.locked && <Lock size={10} className="text-red-500/80" />}
                             </div>
                             <div className="text-[9px] text-[#00ff00]/40 flex items-center gap-3 uppercase tracking-tighter">
-                                <span className="font-bold text-[#00ff00]/60">+{item.value} {item.type === 'Weapon' ? 'ATK' : 'DEF'}</span>
+                                <span className="font-bold text-[#00ff00]/60">+{Math.floor(item.value)} {item.type === 'Weapon' ? 'ATK' : 'DEF'}</span>
                                 {item.stats && (
                                     <div className="flex gap-2 opacity-60">
                                         {Object.entries(item.stats).map(([s, v]) => (
-                                            <span key={s}>{s}:{v}</span>
+                                            <span key={s}>{s}:{Math.floor(v as number)}</span>
                                         ))}
                                     </div>
                                 )}
@@ -170,7 +170,7 @@ export const MerchantTab: React.FC = () => {
                                 disabled={item.locked}
                                 className="px-4 py-1.5 bg-[#00ff00]/5 hover:bg-[#00ff00]/10 text-[#00ff00] border border-[#00ff00]/30 rounded-sm text-[10px] font-bold uppercase tracking-widest disabled:opacity-20 disabled:cursor-not-allowed transition-all"
                             >
-                                SELL ({item.sellPrice}G)
+                                SELL ({Math.floor(item.sellPrice)}G)
                             </button>
                         </div>
                     </div>

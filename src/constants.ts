@@ -44,7 +44,9 @@ export interface Skill {
 }
 
 export const CLASS_SKILLS: Record<string, Skill[]> = {
-  Novice: [],
+  Novice: [
+    { name: 'Quick Slash', cost: 20, type: 'physical', mult: 1.2, guaranteedCrit: false, aoe: false, cooldown: 3, unlockLevel: 1 }
+  ],
   Warrior: [
     { name: 'Heavy Strike', cost: 40, type: 'physical', mult: 2.0, guaranteedCrit: false, aoe: false, cooldown: 5, unlockLevel: 1 },
     { name: 'Shield Bash', cost: 100, type: 'physical', mult: 2.5, guaranteedCrit: false, aoe: true, cooldown: 8, unlockLevel: 30, statusEffect: { type: 'freeze', chance: 20, duration: 2 } }

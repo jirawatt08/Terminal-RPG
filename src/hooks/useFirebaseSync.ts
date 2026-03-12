@@ -6,7 +6,8 @@ import {
     logout as firebaseLogout, 
     savePlayerData, 
     getPlayerData, 
-    isFirebaseConfigured 
+    isFirebaseConfigured,
+    saveRebornRecord
 } from '../services/firebase';
 import { Player } from '../types';
 
@@ -15,6 +16,9 @@ interface UseFirebaseSyncProps {
     setPlayer: React.Dispatch<React.SetStateAction<Player>>;
     addLog: (text: string, type?: any) => void;
 }
+
+const findBestRun = (history: any[]) =>
+    [...history].sort((a, b) => b.stage !== a.stage ? b.stage - a.stage : b.level - a.level)[0];
 
 export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncProps) {
     const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -37,7 +41,9 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
+                    const localHistory = playerRef.current.rebornHistory || [];
                     const cloudData = await getPlayerData(user.uid);
+                    
                     if (cloudData) {
                         let repairedData = { ...cloudData };
                         let needsSave = false;
@@ -47,6 +53,10 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
                             needsSave = true;
                             addLog('[REPAIR] Invalid Reborn Points detected and reset to 0.', 'warning');
                         }
+
+                        // Merge histories to find the absolute best run across both local and cloud
+                        const cloudHistory = repairedData.rebornHistory || [];
+                        const bestRun = findBestRun([...localHistory, ...cloudHistory]);
 
                         setPlayer(prev => ({
                             ...prev,
@@ -58,6 +68,16 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
 
                         if (needsSave) {
                             savePlayerData(user.uid, repairedData);
+                        }
+
+                        // Sync best run to global records
+                        if (bestRun) {
+                            saveRebornRecord({
+                                ...bestRun,
+                                uid: user.uid,
+                                displayName: user.displayName || 'Player',
+                                photoURL: user.photoURL || ''
+                            });
                         }
 
                         lastSavedRef.current = JSON.stringify(repairedData);
@@ -72,6 +92,18 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
                         };
                         await savePlayerData(user.uid, initialData);
                         setPlayer(initialData);
+                        
+                        // For a new user, sync their best local run immediately
+                        if (localHistory.length > 0) {
+                            const bestLocalRun = findBestRun(localHistory);
+                            saveRebornRecord({
+                                ...bestLocalRun,
+                                uid: user.uid,
+                                displayName: user.displayName || 'Player',
+                                photoURL: user.photoURL || ''
+                            });
+                        }
+
                         lastSavedRef.current = JSON.stringify(initialData);
                         setLastSaveTime(new Date());
                         addLog(`[SYSTEM] New profile created for ${user.displayName}.`, 'success');
@@ -95,14 +127,18 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
 
     // Auto-save: Every 5 minutes
     useEffect(() => {
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
             if (playerRef.current.uid) {
                 const currentData = JSON.stringify(playerRef.current);
                 if (currentData !== lastSavedRef.current) {
-                    savePlayerData(playerRef.current.uid, playerRef.current);
-                    lastSavedRef.current = currentData;
-                    setLastSaveTime(new Date());
-                    console.log('[SYSTEM] Auto-save triggered.');
+                    try {
+                        await savePlayerData(playerRef.current.uid, playerRef.current);
+                        lastSavedRef.current = currentData;
+                        setLastSaveTime(new Date());
+                        console.log('[SYSTEM] Auto-save triggered.');
+                    } catch (error) {
+                        console.error('[SYSTEM] Auto-save failed:', error);
+                    }
                 }
             }
         }, 300000);

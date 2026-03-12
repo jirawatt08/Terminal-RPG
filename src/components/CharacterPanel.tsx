@@ -110,37 +110,37 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
 
         <div className="space-y-2 text-sm">
           <div className="flex justify-between"><span>CLASS:</span> <span className="text-purple-400">{player.playerClass}</span></div>
-          <div className="flex justify-between"><span>STAGE:</span> <span className="text-yellow-400">{player.stage}</span></div>
-          <div className="flex justify-between"><span>LEVEL:</span> <span>{player.level}</span></div>
+          <div className="flex justify-between"><span>STAGE:</span> <span className="text-yellow-400">{Math.floor(player.stage)}</span></div>
+          <div className="flex justify-between"><span>LEVEL:</span> <span>{Math.floor(player.level)}</span></div>
           <div>
             <div className="flex justify-between mb-1"><span>EXP:</span></div>
-            <ProgressBar current={player.exp} max={player.maxExp} color="bg-yellow-500" barMode={barMode} />
+            <ProgressBar current={Math.floor(player.exp)} max={Math.floor(player.maxExp)} color="bg-yellow-500" barMode={barMode} />
           </div>
           
           <div className="mt-2">
             <div className="flex justify-between mb-1">
               <span className="flex items-center gap-1"><Heart size={14} className="text-red-500" /> HP:</span>
             </div>
-            <ProgressBar current={Math.floor(player.hp)} max={maxHp} color="bg-red-500" barMode={barMode} />
+            <ProgressBar current={Math.floor(player.hp)} max={Math.floor(maxHp)} color="bg-red-500" barMode={barMode} />
 
             <div className="flex justify-between mb-1 mt-2">
               <span className="flex items-center gap-1"><Zap size={14} className="text-blue-500" /> MP:</span>
             </div>
-            <ProgressBar current={Math.floor(player.mp)} max={maxMp} color="bg-blue-500" barMode={barMode} />
+            <ProgressBar current={Math.floor(player.mp)} max={Math.floor(maxMp)} color="bg-blue-500" barMode={barMode} />
           </div>
 
           <div className="mt-4 space-y-1">
             <div className="flex justify-between text-gray-400">
               <span className="flex items-center gap-1"><Sword size={14} /> ATK:</span> 
-              <span>{totalAttack}</span>
+              <span>{Math.floor(totalAttack)}</span>
             </div>
             <div className="flex justify-between text-gray-400">
               <span className="flex items-center gap-1"><Shield size={14} /> DEF:</span> 
-              <span>{totalDefense}</span>
+              <span>{Math.floor(totalDefense)}</span>
             </div>
             <div className="flex justify-between text-yellow-400">
               <span className="flex items-center gap-1"><Coins size={14} /> GOLD:</span> 
-              <span>{player.gold}</span>
+              <span>{Math.floor(player.gold)}</span>
             </div>
           </div>
 
@@ -150,11 +150,11 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <div className="flex justify-between mb-2 text-xs text-gray-400">
                   <span>ATTRIBUTES</span>
-                  {player.statPoints > 0 && <span className="text-yellow-400 animate-pulse">{player.statPoints} PTS</span>}
+                  {player.statPoints > 0 && <span className="text-yellow-400 animate-pulse">{Math.floor(player.statPoints)} PTS</span>}
                 </div>
                 {(['str', 'agi', 'vit', 'int', 'luk'] as const).map(stat => (
                   <div key={stat} className="flex justify-between items-center text-xs mb-1">
-                    <span className="uppercase">{stat}: {player.stats[stat]}</span>
+                    <span className="uppercase">{stat}: {Math.floor(player.stats[stat])}</span>
                     {player.statPoints > 0 && (
                       <button onClick={() => allocateStat(stat)} className="text-[#00ff00] hover:text-white"><ArrowUpCircle size={14} /></button>
                     )}
@@ -262,19 +262,19 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
           {sysStatusTab === 'CHARACTER' && (
             <div className="mt-4 pt-4 border-t border-gray-800">
               <div className="space-y-1 text-xs text-gray-400">
-                <div className="flex justify-between"><span>Max HP:</span> <span className="text-red-400">{maxHp}</span></div>
-                <div className="flex justify-between"><span>Max MP:</span> <span className="text-blue-400">{maxMp}</span></div>
-                <div className="flex justify-between"><span>Attack:</span> <span className="text-gray-300">{totalAttack}</span></div>
-                <div className="flex justify-between"><span>Defense:</span> <span className="text-gray-300">{totalDefense}</span></div>
-                <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{totalMagicAttack}</span></div>
-                <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{critChance}%</span></div>
+                <div className="flex justify-between"><span>Max HP:</span> <span className="text-red-400">{Math.floor(maxHp)}</span></div>
+                <div className="flex justify-between"><span>Max MP:</span> <span className="text-blue-400">{Math.floor(maxMp)}</span></div>
+                <div className="flex justify-between"><span>Attack:</span> <span className="text-gray-300">{Math.floor(totalAttack)}</span></div>
+                <div className="flex justify-between"><span>Defense:</span> <span className="text-gray-300">{Math.floor(totalDefense)}</span></div>
+                <div className="flex justify-between"><span>Magic ATK:</span> <span className="text-purple-400">{Math.floor(totalMagicAttack)}</span></div>
+                <div className="flex justify-between"><span>Crit Chance:</span> <span className="text-yellow-400">{Math.floor(critChance)}%</span></div>
                 <div className="flex justify-between"><span>Crit Damage:</span> <span className="text-yellow-400">{Math.floor(finalCritDmg * 100)}%</span></div>
-                <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{dodgeChance}%</span></div>
-                <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{lifesteal}%</span></div>
-                <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{totalLuck}</span></div>
-                <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{totalStatusChance}/10</span></div>
-                <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{setBonusGoldPct * 100}%</span></div>
-                <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{setBonusExpPct * 100}%</span></div>
+                <div className="flex justify-between"><span>Dodge Chance:</span> <span className="text-green-400">{Math.floor(dodgeChance)}%</span></div>
+                <div className="flex justify-between"><span>Lifesteal:</span> <span className="text-red-500">{Math.floor(lifesteal)}%</span></div>
+                <div className="flex justify-between"><span>Luck:</span> <span className="text-emerald-400">{Math.floor(totalLuck)}</span></div>
+                <div className="flex justify-between"><span>Status Chance:</span> <span className="text-blue-400">{Math.floor(totalStatusChance)}/10</span></div>
+                <div className="flex justify-between"><span>Bonus Gold:</span> <span className="text-yellow-500">{Math.floor(setBonusGoldPct * 100)}%</span></div>
+                <div className="flex justify-between"><span>Bonus EXP:</span> <span className="text-blue-300">{Math.floor(setBonusExpPct * 100)}%</span></div>
               </div>
             </div>
           )}

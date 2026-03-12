@@ -94,8 +94,8 @@ export const calculateStats = (player: Player) => {
     const setBonusMagicPct = (hasSet('Sage') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
     const setBonusHpPct = (hasSet('Guardian') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
     const setBonusMpPct = (hasSet('Sage') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
-    const setBonusGoldPct = (hasSet('Merchant') ? 0.5 : 0);
-    const setBonusExpPct = (hasSet('Explorer') ? 0.5 : 0);
+    const setBonusGoldPct = (hasSet('Merchant') ? 0.5 : 0) + (player.rebornUpgrades?.goldBonus || 0) / 100;
+    const setBonusExpPct = (hasSet('Explorer') ? 0.5 : 0) + (player.rebornUpgrades?.expBonus || 0) / 100;
     const setBonusDodge = (hasSet('Phantom') ? 15 : 0) + (hasSet('Shadow') ? 10 : 0);
     const setBonusCrit = (hasSet('Assassin') ? 15 : 0) + (hasSet('Shadow') ? 10 : 0);
     const setBonusLifesteal = (hasSet('Vampire') ? 15 : 0);

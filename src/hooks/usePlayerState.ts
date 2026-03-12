@@ -141,7 +141,9 @@ export function usePlayerState(addLog: (msg: string, type?: any) => void) {
             rebornUpgrades: {
                 ...p.rebornUpgrades,
                 [type]: (p.rebornUpgrades[type] || 0) + (type === 'statBonus' ? 1 : 5)
-            }
+            },
+            // Immediately grant a stat point if it's a statBonus upgrade
+            statPoints: type === 'statBonus' ? p.statPoints + 1 : p.statPoints
         }));
         addLog(`Upgrade purchased: ${type}.`, 'success');
     };

@@ -139,14 +139,14 @@ const compressData = (data: any): any => {
   return compressed;
 };
 
+const reverseFieldMap = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [v, k]));
+const reverseItemMap = Object.fromEntries(Object.entries(ITEM_MAP).map(([k, v]) => [v, k]));
+
 const decompressData = (data: any): any => {
   if (!data || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(decompressData);
 
   const decompressed: any = {};
-  const reverseFieldMap = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [v, k]));
-  const reverseItemMap = Object.fromEntries(Object.entries(ITEM_MAP).map(([k, v]) => [v, k]));
-
   for (const [key, value] of Object.entries(data)) {
     const longKey = reverseFieldMap[key] || reverseItemMap[key] || key;
     // Only recurse if it's a plain object or array
@@ -221,33 +221,51 @@ export const saveRebornRecord = async (record: any) => {
     const docRef = doc(db, 'records', record.uid);
     const existingDoc = await getDoc(docRef);
     
-    let shouldUpdate = true;
+    // Ensure we are working with integers for comparison
+    const currentStage = Math.floor(record.stage || 0);
+    const currentLevel = Math.floor(record.level || 0);
+
+    let shouldUpdateStats = true;
     if (existingDoc.exists()) {
       const existingData = existingDoc.data();
-      // Use uncompressed keys for comparison if available, otherwise fallback to compressed for legacy
-      const existingStage = Number(existingData.stage ?? existingData.s ?? 0);
-      const existingLevel = Number(existingData.level ?? existingData.l ?? 0);
+      const existingStage = Math.floor(Number(existingData.stage ?? existingData.s ?? 0));
+      const existingLevel = Math.floor(Number(existingData.level ?? existingData.l ?? 0));
 
-      // Only update if new stage is higher, or stage is same but level is higher
-      if (record.stage < existingStage) {
-        shouldUpdate = false;
-      } else if (record.stage === existingStage && record.level <= existingLevel) {
-        // Even if the run is the same, if we are migrating from legacy 's' to 'stage', we should update
+      if (currentStage < existingStage) {
+        shouldUpdateStats = false;
+      } else if (currentStage === existingStage && currentLevel <= existingLevel) {
         if (existingData.s && !existingData.stage) {
-            shouldUpdate = true;
+            shouldUpdateStats = true;
         } else {
-            shouldUpdate = false;
+            shouldUpdateStats = false;
         }
       }
     }
 
-    if (shouldUpdate) {
-      // SAVE WITHOUT COMPRESSION for better querying in Dashboard
-      await setDoc(docRef, {
-        ...record,
-        timestamp: serverTimestamp()
-      }, { merge: true });
-      console.log(`[FIREBASE] High score update triggered for ${record.displayName}: Stage ${record.stage}`);
+    // Prepare the basic data that should ALWAYS be updated (fresh metadata)
+    const updateData: any = {
+      uid: record.uid,
+      displayName: record.displayName || 'Player',
+      photoURL: record.photoURL || '',
+      rebornCount: Math.floor(record.rebornCount || 0),
+      lastActive: serverTimestamp()
+    };
+
+    // If this is a better run, update the competitive stats as well
+    if (shouldUpdateStats) {
+      updateData.stage = currentStage;
+      updateData.level = currentLevel;
+      updateData.gold = Math.floor(record.gold || 0);
+      updateData.monstersKilled = Math.floor(record.monstersKilled || 0);
+      updateData.bossesKilled = Math.floor(record.bossesKilled || 0);
+      updateData.timestamp = serverTimestamp();
+      console.log(`[FIREBASE] High score stats updated for ${record.displayName}: Stage ${currentStage}`);
+    }
+
+    await setDoc(docRef, updateData, { merge: true });
+    
+    if (!shouldUpdateStats) {
+      console.log(`[FIREBASE] Metadata updated for ${record.displayName}. (Current record: Stage ${currentStage} is not higher than best)`);
     }
   } catch (error) {
     console.error("Error saving reborn record", error);
@@ -257,31 +275,51 @@ export const saveRebornRecord = async (record: any) => {
 export const getGlobalRecords = async (limitCount: number = 50) => {
   if (!isFirebaseConfigured) return [];
   try {
-    // Use simple timestamp ordering to avoid needing composite indices
-    // We fetch a larger batch and sort client-side for better reliability
+    // Try to query by stage first for a better leaderboard experience
+    // Note: This might require an index in Firestore if combined with other filters, 
+    // but for a simple collection query it usually works or provides a link to create the index.
     const q = query(
       collection(db, 'records'), 
-      orderBy('timestamp', 'desc'), 
+      orderBy('stage', 'desc'),
       limit(limitCount)
     );
-    const querySnapshot = await getDocs(q);
+    
+    let querySnapshot;
+    try {
+        querySnapshot = await getDocs(q);
+    } catch (e) {
+        console.warn("[FIREBASE] Stage-based query failed (likely missing index), falling back to timestamp query.");
+        const fallbackQ = query(
+            collection(db, 'records'), 
+            orderBy('timestamp', 'desc'), 
+            limit(limitCount)
+        );
+        querySnapshot = await getDocs(fallbackQ);
+    }
+
     const records = querySnapshot.docs.map(doc => {
         const data = doc.data();
         // If data was compressed (legacy), decompress it, otherwise use as-is
+        // Legacy records used 's' for stage, 'l' for level
         const decompressed = data.s ? decompressData(data) : data;
+        
         // Ensure stage and level are numbers for sorting
+        // We use Math.floor here as well to be consistent with the "simple number" requirement
         return { 
             id: doc.id, 
             ...decompressed,
-            stage: Number(decompressed.stage || 0),
-            level: Number(decompressed.level || 0)
+            stage: Math.floor(Number(decompressed.stage ?? decompressed.s ?? 0)),
+            level: Math.floor(Number(decompressed.level ?? decompressed.l ?? 0)),
+            gold: Math.floor(Number(decompressed.gold ?? decompressed.g ?? 0)),
+            rebornCount: Math.floor(Number(decompressed.rebornCount ?? decompressed.rc ?? 0))
         };
     });
 
-    // Sort by Stage DESC, then Level DESC
+    // Final sort to handle ties in stage with level, and to sort properly if we used fallback timestamp query
     return records.sort((a, b) => {
         if (b.stage !== a.stage) return b.stage - a.stage;
-        return b.level - a.level;
+        if (b.level !== a.level) return b.level - a.level;
+        return 0;
     });
   } catch (error) {
     console.error("Error getting global records", error);

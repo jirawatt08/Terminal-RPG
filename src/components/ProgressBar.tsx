@@ -21,7 +21,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 <div className="flex justify-between items-end mb-1">
                     {label && <span className="text-[10px] text-[#00ff00]/50 uppercase tracking-widest">{label}</span>}
                     <div className="flex gap-2 items-center">
-                        {barMode === 'number' && <span className="text-[10px] font-mono">{current} / {max}</span>}
+                        {barMode === 'number' && <span className="text-[10px] font-mono">{Math.floor(current)} / {Math.floor(max)}</span>}
                         {barMode === 'percent' && <span className="text-[10px] font-mono">{pct.toFixed(1)}%</span>}
                         {subLabel && <span className="text-[10px] text-[#00ff00]/70 font-bold">{subLabel}</span>}
                     </div>

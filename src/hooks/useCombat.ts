@@ -282,10 +282,10 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                         const efficiency = Math.max(0.2, Math.min(2.0, currentStg / (Math.max(1, p.level) / 5)));
                         
                         const baseGained = (target.expReward * 0.2) + (p.maxExp * basePct * efficiency);
-                        const expBonusMult = (1 + (p.rebornUpgrades.expBonus / 100) + setBonusExpPct + (potionExpBonus / 100));
+                        const expBonusMult = (1 + setBonusExpPct + (potionExpBonus / 100));
                         const exp = Math.floor(baseGained * expBonusMult);
 
-                        const gold = Math.floor(target.goldReward * (1 + (p.rebornUpgrades.goldBonus / 100) + setBonusGoldPct + (potionGoldBonus / 100)));
+                        const gold = Math.floor(target.goldReward * (1 + setBonusGoldPct + (potionGoldBonus / 100)));
                         p.exp += exp; p.gold += gold;
                         addLog(`+ ${exp} EXP | + ${gold} Gold`, 'info');
 
