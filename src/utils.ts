@@ -102,7 +102,7 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
   if (rarity === 'Mythic' && stage < 5) rarity = 'Legendary';
   // Legendary is base (Stage 1) as requested.
 
-  const rarityMultiplier = { Common: 1, Uncommon: 1.5, Rare: 2, Epic: 3, Legendary: 5, Mythic: 8, Divine: 15 }[rarity];
+  const rarityMultiplier = { Common: 1, Uncommon: 1.5, Rare: 2, Epic: 3, Legendary: 5, Mythic: 7.2, Divine: 11.25 }[rarity];
   const value = Math.floor((playerLevel * 1.2 + stage * 2 + Math.random() * 3) * rarityMultiplier);
 
   const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
@@ -113,7 +113,7 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
   let effect: { type: EffectType; value: number } | undefined;
   let setName: string | undefined;
 
-  if (rarity === 'Epic' || rarity === 'Legendary' || rarity === 'Mythic' || rarity === 'Divine') {
+  if (rarity !== 'Common' && rarity !== 'Divine') {
     const effectTypes: EffectType[] = ['lifesteal', 'crit', 'dodge', 'poison', 'burn', 'stun', 'freeze', 'luck', 'statusChance'];
     const selectedType = effectTypes[Math.floor(Math.random() * effectTypes.length)];
     
@@ -129,10 +129,8 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
           : Math.floor(Math.random() * 10) + (rarityMultiplier * 2)
     };
 
-    // Unique items (Mythic/Divine) don't need a set name, they are unique
-    if (rarity === 'Mythic' || rarity === 'Divine') {
-      setName = undefined;
-    } else if (Math.random() > 0.5) {
+    // Mythic items always have a set effect. Other non-common, non-divine items have a 50% chance.
+    if (rarity === 'Mythic' || Math.random() > 0.5) {
       setName = SET_NAMES[Math.floor(Math.random() * SET_NAMES.length)];
     }
   }

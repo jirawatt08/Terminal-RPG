@@ -28,10 +28,58 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
     const playerRef = useRef<Player>(player);
     const lastSavedRef = useRef<string>("");
 
+    // Load local save on initial mount
+    useEffect(() => {
+        const localSave = localStorage.getItem('terminal_rpg_save');
+        if (localSave && !auth.currentUser) {
+            try {
+                const parsed = JSON.parse(localSave);
+                // Don't overwrite if we have a user from auth (handled by onAuthStateChanged)
+                setPlayer(prev => ({ ...prev, ...parsed, uid: undefined }));
+                addLog('[SYSTEM] Local save restored.', 'success');
+            } catch (e) {
+                console.error("Failed to parse local save", e);
+            }
+        }
+    }, []);
+
     // Keep playerRef in sync for callbacks and intervals
     useEffect(() => {
         playerRef.current = player;
     }, [player]);
+
+    // Auto-save: Every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            const currentData = JSON.stringify({
+                ...playerRef.current,
+                uid: playerRef.current.uid, 
+                displayName: playerRef.current.displayName,
+                photoURL: playerRef.current.photoURL
+            });
+
+            if (currentData !== lastSavedRef.current) {
+                // Always save locally as a backup
+                localStorage.setItem('terminal_rpg_save', currentData);
+                
+                // Save to cloud if logged in
+                if (playerRef.current.uid && isFirebaseConfigured) {
+                    try {
+                        await savePlayerData(playerRef.current.uid, playerRef.current);
+                        setLastSaveTime(new Date());
+                        console.log('[SYSTEM] Cloud auto-save triggered.');
+                    } catch (error) {
+                        console.error('[SYSTEM] Cloud auto-save failed:', error);
+                    }
+                } else if (!playerRef.current.uid) {
+                    setLastSaveTime(new Date());
+                    console.log('[SYSTEM] Local auto-save triggered.');
+                }
+                lastSavedRef.current = currentData;
+            }
+        }, 30000); 
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         if (!isFirebaseConfigured) {
@@ -125,26 +173,6 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
         return () => unsubscribe();
     }, [addLog, setPlayer]);
 
-    // Auto-save: Every 5 minutes
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            if (playerRef.current.uid) {
-                const currentData = JSON.stringify(playerRef.current);
-                if (currentData !== lastSavedRef.current) {
-                    try {
-                        await savePlayerData(playerRef.current.uid, playerRef.current);
-                        lastSavedRef.current = currentData;
-                        setLastSaveTime(new Date());
-                        console.log('[SYSTEM] Auto-save triggered.');
-                    } catch (error) {
-                        console.error('[SYSTEM] Auto-save failed:', error);
-                    }
-                }
-            }
-        }, 300000);
-        return () => clearInterval(interval);
-    }, []);
-
     const login = async () => {
         if (isLoggingIn) return;
         setIsLoggingIn(true);
@@ -172,17 +200,94 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
     };
 
     const manualSave = async () => {
+        const currentData = JSON.stringify({
+            ...playerRef.current,
+            uid: playerRef.current.uid, 
+            displayName: playerRef.current.displayName,
+            photoURL: playerRef.current.photoURL
+        });
+        
+        // Always save locally
+        localStorage.setItem('terminal_rpg_save', currentData);
+        lastSavedRef.current = currentData;
+
         if (!playerRef.current.uid) {
-            addLog('Cannot save: Not logged in.', 'error');
+            setLastSaveTime(new Date());
+            addLog('[SYSTEM] Local manual save successful.', 'success');
             return;
         }
+
         try {
             await savePlayerData(playerRef.current.uid, playerRef.current);
-            lastSavedRef.current = JSON.stringify(playerRef.current);
             setLastSaveTime(new Date());
             addLog('[SYSTEM] Manual save successful. Data pushed to cloud.', 'success');
         } catch (error) {
             addLog('[SYSTEM] Manual save failed.', 'error');
+        }
+    };
+
+    const saveToLocal = () => {
+        const currentData = JSON.stringify({
+            ...playerRef.current,
+            uid: playerRef.current.uid, 
+            displayName: playerRef.current.displayName,
+            photoURL: playerRef.current.photoURL
+        });
+        
+        localStorage.setItem('terminal_rpg_save', currentData);
+        lastSavedRef.current = currentData;
+        setLastSaveTime(new Date());
+        addLog('[SYSTEM] Manual local save successful.', 'success');
+    };
+
+    const exportSave = () => {
+        const dataStr = JSON.stringify({
+            ...playerRef.current,
+            uid: undefined,
+            displayName: undefined,
+            photoURL: undefined
+        }, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = `terminal_rpg_save_${new Date().toISOString().slice(0,10)}.json`;
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        addLog('[SYSTEM] Save file exported successfully.', 'success');
+    };
+
+    const importSave = (jsonStr: string) => {
+        try {
+            const parsed = JSON.parse(jsonStr);
+            // Basic validation: Check if it has essential player fields
+            if (typeof parsed.level !== 'number' || typeof parsed.stats !== 'object') {
+                throw new Error("Invalid save file format.");
+            }
+
+            // Prepare the new player data (preserve current auth if exists)
+            const newData = {
+                ...parsed,
+                uid: playerRef.current.uid,
+                displayName: playerRef.current.displayName,
+                photoURL: playerRef.current.photoURL
+            };
+
+            setPlayer(newData);
+            
+            // Persist immediately
+            localStorage.setItem('terminal_rpg_save', JSON.stringify(newData));
+            if (newData.uid && isFirebaseConfigured) {
+                savePlayerData(newData.uid, newData);
+            }
+            
+            lastSavedRef.current = JSON.stringify(newData);
+            setLastSaveTime(new Date());
+            addLog('[SYSTEM] Save file imported successfully.', 'success');
+        } catch (e: any) {
+            addLog(`[SYSTEM] Import failed: ${e.message}`, 'error');
+            console.error("Import error:", e);
         }
     };
 
@@ -193,6 +298,9 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
         lastSaveTime,
         login,
         logout,
-        manualSave
+        manualSave,
+        saveToLocal,
+        exportSave,
+        importSave
     };
 }

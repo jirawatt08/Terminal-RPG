@@ -16,30 +16,45 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose, localRe
     const [error, setError] = useState<string | null>(null);
     const [view, setView] = useState<'GLOBAL' | 'LOCAL' | 'PATCHES'>(initialView || 'GLOBAL');
 
+    const fetchRecords = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await getGlobalRecords(50);
+            setRecords(data as RebornRecord[]);
+        } catch (err: any) {
+            setError(err.message || "Failed to load records.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!isFirebaseConfigured) {
             setView('LOCAL');
             setLoading(false);
             return;
         }
-        const fetchRecords = async () => {
-            try {
-                const data = await getGlobalRecords(50);
-                setRecords(data as RebornRecord[]);
-            } catch (err: any) {
-                setError(err.message || "Failed to load records.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchRecords();
-    }, []);
+        if (view === 'GLOBAL') {
+            fetchRecords();
+        }
+    }, [view]);
 
     return (
         <div className="flex flex-col h-full bg-[#050505] text-[#00ff00] font-mono p-4">
             <div className="flex items-center justify-between mb-2 border-b border-[#00ff00]/30 pb-2">
                 <h2 className="text-xl font-bold flex items-center gap-2 text-[#00ff00]">
                     <Trophy size={20} className="text-yellow-400" /> DASHBOARD
+                    {view === 'GLOBAL' && isFirebaseConfigured && (
+                        <button 
+                            onClick={fetchRecords} 
+                            disabled={loading}
+                            className="ml-2 p-1 hover:bg-[#00ff00]/10 rounded-full transition-colors disabled:opacity-50"
+                            title="Refresh Records"
+                        >
+                            <Zap size={14} className={loading ? "animate-spin" : ""} />
+                        </button>
+                    )}
                 </h2>
                 <button
                     onClick={onClose}

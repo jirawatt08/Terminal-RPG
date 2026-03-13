@@ -8,18 +8,30 @@ import { useVillageActions } from './useVillageActions';
 import { calculateStats, getEquipmentValue } from '../logic/stats';
 
 export function useGameLogic() {
-    const { logs, addLog, logsEndRef, autoScroll, setAutoScroll } = useLog();
+    const { logs, addLog, clearLogs, logsEndRef, autoScroll, setAutoScroll } = useLog();
     const { player, setPlayer, allocateStat, chooseClass, reborn, buyRebornUpgrade } = usePlayerState(addLog);
     
     const {
         isLoggingIn, showLoginModal, setShowLoginModal, lastSaveTime,
-        login, logout, manualSave
+        login, logout, manualSave, saveToLocal, exportSave, importSave
     } = useFirebaseSync({ player, setPlayer, addLog });
 
     const queuedSkillRef = useRef(false);
 
-    // Derived stats (recalculated when player state changes)
-    const stats = useMemo(() => calculateStats(player), [player]);
+    // Derived stats (recalculated only when properties that affect stats change)
+    const stats = useMemo(() => calculateStats(player), [
+        player.level,
+        player.stage,
+        player.stats,
+        player.equipment,
+        player.playerClass,
+        player.rebornUpgrades,
+        player.maxHp,
+        player.maxMp,
+        player.baseAttack,
+        player.baseDefense,
+        player.potions,
+    ]);
 
     const {
         gameState, setGameState, currentEnemies, setCurrentEnemies,
@@ -43,7 +55,7 @@ export function useGameLogic() {
         addLog('Type or click commands to begin your process.', 'info');
     }, [addLog]);
 
-    return {
+    return useMemo(() => ({
         player,
         setPlayer,
         gameState,
@@ -51,6 +63,7 @@ export function useGameLogic() {
         currentEnemies,
         logs,
         addLog,
+        clearLogs,
         lastSaveTime,
         autoScroll,
         setAutoScroll,
@@ -63,9 +76,10 @@ export function useGameLogic() {
             startFarming, startBossFight, startNextBossFight, stopAction,
             enterVillage, openSettings, openDashboard, openPatchNotes, runAway, showHelp,
             equipItem, sellItem, upgradeItem, toggleItemLock, sellAllItems, heal, allocateStat,
-            chooseClass, manualSave, setShowLoginModal,
+            chooseClass, manualSave, saveToLocal, exportSave, importSave, setShowLoginModal,
             login, logout, buyPotion, buyMaxPotion, acceptQuest, completeQuest,
             buyPotionMaxUpgrade, buyPotionQualityUpgrade,
+            clearLogs,
             reborn: () => reborn(setGameState, setCurrentEnemies),
             buyRebornUpgrade
         },
@@ -74,5 +88,9 @@ export function useGameLogic() {
         refs: {
             logsEndRef, queuedSkillRef
         }
-    };
+    }), [
+        player, gameState, currentEnemies, logs, lastSaveTime, autoScroll, 
+        stats, isLoggingIn, showLoginModal, 
+        // We include all pieces of state that might change
+    ]);
 }

@@ -15,7 +15,58 @@ export const ARMOR_NAMES = ['Tunic', 'Chainmail', 'Plate Armor', 'Leather Vest',
 export const ACCESSORY_NAMES = ['Ring', 'Amulet', 'Pendant', 'Charm', 'Bracelet'];
 
 export const ADJECTIVES = ['Rusty', 'Iron', 'Steel', 'Mithril', 'Adamantite', 'Demonic', 'Divine', 'Cursed', 'Blessed', 'Ancient', 'Void'];
-export const SET_NAMES = ['Phantom', 'Berserker', 'Guardian', 'Sage', 'Shadow', 'Celestial', 'Iron', 'Merchant', 'Explorer', 'Vampire', 'Assassin'];
+export const SET_NAMES = ['Phantom', 'Berserker', 'Guardian', 'Sage', 'Shadow', 'Celestial', 'Iron', 'Merchant', 'Explorer', 'Vampire', 'Assassin', 'Reflex', 'Scholar', 'Warlord', 'Duelist'];
+
+export interface StatModifiers {
+  str?: number;
+  agi?: number;
+  vit?: number;
+  int?: number;
+  luk?: number;
+  atk?: number;
+  def?: number;
+  hp?: number;
+  mp?: number;
+  magicAtk?: number;
+  gold?: number;
+  exp?: number;
+  dodge?: number;
+  crit?: number;
+  critDmg?: number;
+  lifesteal?: number;
+  skillHaste?: number;
+  reflection?: number;
+}
+
+export const CLASS_MODIFIERS: Record<string, StatModifiers> = {
+  Warrior: { vit: 1.2, str: 1.1, hp: 1.1, def: 1.1 },
+  Rogue: { agi: 1.2, luk: 1.1, crit: 10, critDmg: 0.2 },
+  Mage: { int: 1.2, vit: 1.1, magicAtk: 1.2 },
+  Paladin: { vit: 1.3, int: 1.2, hp: 1.2, def: 1.2, magicAtk: 1.1 },
+  Berserker: { str: 1.3, agi: 1.2, atk: 0.3, lifesteal: 10 },
+  Assassin: { agi: 1.3, luk: 1.2, crit: 20, critDmg: 0.4 },
+  Ranger: { agi: 1.2, str: 1.2, crit: 15, dodge: 15 },
+  Archmage: { int: 1.4, vit: 1.2, magicAtk: 1.4 },
+  Necromancer: { int: 1.3, luk: 1.3, magicAtk: 1.2, lifesteal: 15 }
+};
+
+export const SET_BONUSES_DATA: Record<string, StatModifiers> = {
+  Berserker: { atk: 0.2 },
+  Iron: { def: 0.2 },
+  Guardian: { hp: 0.2, def: 0.2 },
+  Sage: { mp: 0.2, magicAtk: 0.2 },
+  Celestial: { str: 0.1, agi: 0.1, vit: 0.1, int: 0.1, luk: 0.1 },
+  Merchant: { gold: 0.5 },
+  Explorer: { exp: 0.5 },
+  Phantom: { dodge: 15 },
+  Shadow: { crit: 10, dodge: 10 },
+  Assassin: { crit: 15 },
+  Vampire: { lifesteal: 15 },
+  Reflex: { reflection: 20 },
+  Scholar: { skillHaste: 20 },
+  Warlord: { str: 0.15, agi: 0.15, vit: 0.15, int: 0.15, luk: 0.15 },
+  Duelist: { critDmg: 0.4 }
+};
 
 export const SET_BONUSES: Record<string, string> = {
   Berserker: "+20% Attack",
@@ -28,7 +79,11 @@ export const SET_BONUSES: Record<string, string> = {
   Phantom: "+15% Dodge Rate",
   Shadow: "+10% Crit & Dodge Rate",
   Assassin: "+15% Crit Rate",
-  Vampire: "+15% Lifesteal"
+  Vampire: "+15% Lifesteal",
+  Reflex: "+20% Damage Reflection",
+  Scholar: "+20% Skill Haste",
+  Warlord: "+15% All Stats",
+  Duelist: "+40% Crit Damage"
 };
 
 export interface Skill {

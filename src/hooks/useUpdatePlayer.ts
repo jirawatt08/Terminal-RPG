@@ -21,7 +21,7 @@ export function useUpdatePlayer(setPlayer: React.Dispatch<React.SetStateAction<P
             let newStatPoints = prev.statPoints;
             let newHp = prev.hp;
 
-            if (newExp >= newMaxExp) {
+            while (newExp >= newMaxExp) {
                 newLevel += 1;
                 newExp -= newMaxExp;
                 // Growth rate: 15% early, 50% mid, 10% late (40+)

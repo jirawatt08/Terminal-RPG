@@ -11,6 +11,10 @@ export function useLog() {
         setLogs(prev => [...prev.slice(-99), { id: generateId(), timestamp: new Date(), text, type }]);
     }, []);
 
+    const clearLogs = useCallback(() => {
+        setLogs([]);
+    }, []);
+
     useEffect(() => {
         if (autoScroll) {
             logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,6 +24,7 @@ export function useLog() {
     return {
         logs,
         addLog,
+        clearLogs,
         logsEndRef,
         autoScroll,
         setAutoScroll

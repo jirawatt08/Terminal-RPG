@@ -6,6 +6,41 @@ export interface PatchNote {
 
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: 'v3.0',
+    date: '2026-03-13',
+    changes: [
+      'Architectural Refactor: Migrated "brute-force" logic to data-driven Registry patterns for better maintainability.',
+      'Stat System Overhaul: Consolidated class and set multipliers into a unified modifier system in logic/stats.',
+      'Terminal Command Registry: Implemented a modular command mapping system, enabling easier addition of new gimmicks.',
+      'Combat Logic Optimization: Unified passive ability processing and status effect handling for more consistent results.',
+      'Added four new item sets: Reflex, Scholar, Warlord, and Duelist with unique mechanics like damage reflection.',
+      'Performance: Reduced redundant calculations in the main combat loop and stat derivation.'
+    ]
+  },
+  {
+    version: 'v2.9',
+    date: '2026-03-13',
+    changes: [
+      'Universal Set Synergy: All items from Uncommon to Mythic can now roll with Set Names (Divine remains unique).',
+      'Four New Item Sets: Added Reflex (Reflection), Scholar (Skill Haste), Warlord (Stats), and Duelist (Crit Damage) sets.',
+      'Rarity Stat Rebalance: Mythic items base stats adjusted (-10%) and Divine items rebalanced (-25%) for healthier late-game progression.',
+      'Improved Item Generation: Mythic items now have a 100% chance to roll a Set Name.',
+      'Inventory Optimization: Enhanced filtering and sorting responsiveness for large storage units.'
+    ]
+  },
+  {
+    version: 'v2.8',
+    date: '2026-03-13',
+    changes: [
+      'Implemented Local Save for Guest Players: Progress is now automatically cached in localStorage every 30 seconds.',
+      'Data Backup Suite: Added Export and Import functionality in Settings to manually back up or restore progress via .json files.',
+      'Fixed Reborn System (RB Upgrade): Reborn Stat Points from upgrades are now correctly preserved and re-applied after a reset.',
+      'Dashboard Enhancements: Added manual refresh button and auto-fetch triggers for the Global Leaderboard.',
+      'Performance Optimization: Memoized core panels (Stats, Inventory, Console) and derived stat calculations for smoother high-level gameplay.',
+      'Fixed various minor UI bugs and improved terminal input responsiveness.'
+    ]
+  },
+  {
     version: 'v2.7',
     date: '2026-03-11',
     changes: [

@@ -1,26 +1,33 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
-import { Item, Rarity } from '../types';
+import { Item, Rarity, ItemType } from '../types';
 import { RARITY_COLORS } from '../constants';
 import { Package, Filter, SortAsc, Lock, Shield } from 'lucide-react';
 
 type SortMode = 'RARITY' | 'VALUE' | 'NAME';
 
-export const InventoryPanel: React.FC = () => {
+export const InventoryPanel: React.FC = React.memo(() => {
   const { player, stats, actions } = useGame();
   const [filter, setFilter] = useState<Rarity | 'ALL'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<ItemType | 'ALL'>('ALL');
   const [sortBy, setSortMode] = useState<SortMode>('RARITY');
 
   const rarities: (Rarity | 'ALL')[] = ['ALL', 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Divine'];
   const rarityOrder: Record<Rarity, number> = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4, Mythic: 5, Divine: 6 };
 
+  const itemTypes: (ItemType | 'ALL')[] = ['ALL', 'Weapon', 'Armor', 'Accessory'];
+
   const sortedInventory = [...player.inventory]
-    .filter(i => filter === 'ALL' || i.rarity === filter)
+    .filter(i => (filter === 'ALL' || i.rarity === filter) && (typeFilter === 'ALL' || i.type === typeFilter))
     .sort((a, b) => {
       if (sortBy === 'RARITY') return rarityOrder[b.rarity] - rarityOrder[a.rarity];
       if (sortBy === 'VALUE') return b.value - a.value;
       return a.name.localeCompare(b.name);
     });
+
+  const toggleTypeFilter = (type: ItemType) => {
+    setTypeFilter(prev => prev === type ? 'ALL' : type);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -46,6 +53,18 @@ export const InventoryPanel: React.FC = () => {
                 className={`px-2 py-1 text-[8px] border transition-all uppercase tracking-tighter whitespace-nowrap ${filter === r ? 'bg-[#00ff00]/20 border-[#00ff00]/50 text-[#00ff00]' : 'border-transparent text-[#00ff00]/30 hover:text-[#00ff00]/60'}`}
               >
                 {r}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar border-b border-[#00ff00]/5">
+            {itemTypes.map(t => (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={`px-2 py-1 text-[8px] border transition-all uppercase tracking-tighter whitespace-nowrap ${typeFilter === t ? 'bg-[#00ff00]/20 border-[#00ff00]/50 text-[#00ff00]' : 'border-transparent text-[#00ff00]/30 hover:text-[#00ff00]/60'}`}
+              >
+                {t === 'ALL' ? 'ALL_TYPES' : t}
               </button>
             ))}
           </div>
@@ -135,10 +154,18 @@ export const InventoryPanel: React.FC = () => {
         <div className="space-y-3">
           {(['weapon', 'armor', 'accessory'] as const).map(type => {
             const item = player.equipment[type];
+            const itemType: ItemType = type === 'weapon' ? 'Weapon' : type === 'armor' ? 'Armor' : 'Accessory';
+            const shorthand = type === 'weapon' ? 'WEA' : type === 'armor' ? 'ARM' : 'ACC';
+            const isActive = typeFilter === itemType;
+            
             return (
-              <div key={type} className="flex flex-col gap-1">
+              <div 
+                key={type} 
+                className={`flex flex-col gap-1 cursor-pointer transition-all border p-1 rounded-sm ${isActive ? 'bg-[#00ff00]/10 border-[#00ff00]/50' : 'border-transparent hover:bg-[#00ff00]/5'}`}
+                onClick={() => toggleTypeFilter(itemType)}
+              >
                 <div className="text-[8px] text-[#00ff00]/30 uppercase tracking-widest px-1 flex justify-between">
-                  <span>{type}</span>
+                  <span className={isActive ? 'text-[#00ff00] font-bold' : ''}>{shorthand}</span>
                   {item && <span className="text-yellow-600/60">VAL: {stats.getEquipmentValue(item)}</span>}
                 </div>
                 {item ? (
@@ -163,7 +190,10 @@ export const InventoryPanel: React.FC = () => {
                       )}
                     </div>
                     <button 
-                      onClick={() => actions.toggleItemLock(item)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        actions.toggleItemLock(item);
+                      }}
                       className={`text-[8px] p-1 border transition-all ${item.locked ? 'border-red-500/40 text-red-500' : 'border-transparent text-[#00ff00]/20 hover:text-[#00ff00]/60'}`}
                     >
                       {item.locked ? <Lock size={10} /> : <Filter size={10} />}
@@ -181,4 +211,4 @@ export const InventoryPanel: React.FC = () => {
       </div>
     </div>
   );
-};
+});

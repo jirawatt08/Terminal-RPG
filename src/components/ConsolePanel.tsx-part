@@ -1,0 +1,9 @@
+            <div className="p-3 border-t border-[#00ff00]/10 bg-black flex items-center gap-2">
+                <span className="text-[#00ff00] animate-pulse font-bold text-sm">&gt;</span>
+                <div className="flex-1 h-4 bg-[#00ff00]/5 rounded-sm overflow-hidden relative">
+                    <div className="absolute inset-y-0 left-0 w-1 bg-[#00ff00] animate-[terminal-cursor_1s_infinite]"></div>
+                </div>
+            </div>
+        </div>
+    );
+});

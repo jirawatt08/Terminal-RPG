@@ -41,6 +41,9 @@ export default function App() {
             setPlayer={setPlayer}
             closeSettings={actions.stopAction}
             manualSave={actions.manualSave}
+            saveToLocal={actions.saveToLocal}
+            exportSave={actions.exportSave}
+            importSave={actions.importSave}
           />
         ) : gameState === 'DASHBOARD' || gameState === 'PATCHES' ? (
           <DashboardPanel

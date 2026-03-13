@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { TerminalTab } from '../constants';
 import { ProgressBar } from './ProgressBar';
-import { Sword, Shield, Zap, RotateCcw, Info } from 'lucide-react';
+import { Sword, Shield, Zap, RotateCcw, Info, Terminal as TerminalIcon } from 'lucide-react';
 
-export const ConsolePanel: React.FC = () => {
-    const { logs, gameState, currentEnemies, refs, player, addLog } = useGame();
+export const ConsolePanel: React.FC = React.memo(() => {
+    const { logs, gameState, currentEnemies, refs, player, addLog, clearLogs, actions, autoScroll, setAutoScroll } = useGame();
     const [activeTab, setActiveTab] = useState<TerminalTab>('ALL');
+    const [inputValue, setInputValue] = useState('');
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const filteredLogs = logs.filter(log => {
         if (activeTab === 'ALL') return true;
@@ -18,11 +20,56 @@ export const ConsolePanel: React.FC = () => {
 
     const tabs: TerminalTab[] = ['ALL', 'FIGHT', 'DROP', 'SELL'];
 
+    const handleScroll = () => {
+        if (!scrollContainerRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+        if (autoScroll && !isAtBottom) {
+            setAutoScroll(false);
+        } else if (!autoScroll && isAtBottom) {
+            setAutoScroll(true);
+        }
+    };
+
+    const handleCommand = (e: React.FormEvent) => {
+        e.preventDefault();
+        const cmd = inputValue.trim().toLowerCase();
+        if (!cmd) return;
+
+        addLog(`> ${inputValue}`, 'system');
+        setInputValue('');
+
+        const commandRegistry: Record<string, () => void> = {
+            'help': () => actions.showHelp(),
+            'farm': () => actions.startFarming(),
+            'boss': () => actions.startBossFight(),
+            'village': () => actions.enterVillage(),
+            'heal': () => actions.heal(),
+            'clear': () => clearLogs(),
+            'cls': () => clearLogs(),
+            'save': () => actions.manualSave(),
+            'local-save': () => actions.saveToLocal(),
+            'settings': () => actions.openSettings(),
+            'dashboard': () => actions.openDashboard(),
+            'exit': () => actions.stopAction(),
+            'reborn': () => actions.reborn()
+        };
+
+        if (commandRegistry[cmd]) {
+            commandRegistry[cmd]();
+        } else {
+            addLog(`Unknown command: ${cmd}. Type 'help' for commands.`, 'error');
+        }
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full bg-[#050505] overflow-hidden">
             {/* Header / Tabs */}
             <div className="flex bg-[#00ff00]/5 border-b border-[#00ff00]/20 justify-between items-center pr-2">
-                <div className="flex">
+                <div className="flex items-center">
+                    <div className="px-3 text-[#00ff00]/40">
+                        <TerminalIcon size={14} />
+                    </div>
                     {tabs.map(tab => (
                         <button
                             key={tab}
@@ -35,10 +82,10 @@ export const ConsolePanel: React.FC = () => {
                 </div>
                 
                 <button 
-                    onClick={() => useGame().setAutoScroll(!useGame().autoScroll)}
-                    className={`text-[9px] font-bold px-2 py-1 border rounded-sm transition-all ${useGame().autoScroll ? 'border-[#00ff00]/40 text-[#00ff00]' : 'border-red-500/40 text-red-500'}`}
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    className={`text-[9px] font-bold px-2 py-1 border rounded-sm transition-all ${autoScroll ? 'border-[#00ff00]/40 text-[#00ff00]' : 'border-red-500/40 text-red-500'}`}
                 >
-                    {useGame().autoScroll ? 'SCROLL: ON' : 'SCROLL: OFF'}
+                    {autoScroll ? 'SCROLL: ON' : 'SCROLL: OFF'}
                 </button>
             </div>
 
@@ -92,7 +139,11 @@ export const ConsolePanel: React.FC = () => {
             )}
 
             {/* Log Output */}
-            <div className="flex-1 overflow-y-auto p-4 font-mono scrollbar-thin scrollbar-thumb-[#00ff00]/10">
+            <div 
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 font-mono scrollbar-thin scrollbar-thumb-[#00ff00]/10"
+            >
                 <div className="space-y-1">
                     {filteredLogs.map((log) => (
                         <div key={log.id} className="text-xs flex gap-3 group">
@@ -116,13 +167,25 @@ export const ConsolePanel: React.FC = () => {
                 </div>
             </div>
 
-            {/* Terminal Input Decorator */}
-            <div className="p-3 border-t border-[#00ff00]/10 bg-black flex items-center gap-2">
-                <span className="text-[#00ff00] animate-pulse font-bold text-sm">&gt;</span>
-                <div className="flex-1 h-4 bg-[#00ff00]/5 rounded-sm overflow-hidden relative">
-                    <div className="absolute inset-y-0 left-0 w-1 bg-[#00ff00] animate-[terminal-cursor_1s_infinite]"></div>
+            {/* Terminal Input */}
+            <form 
+                onSubmit={handleCommand}
+                className="p-3 border-t border-[#00ff00]/10 bg-black flex items-center gap-2 group"
+            >
+                <span className="text-[#00ff00] animate-pulse font-bold text-sm shrink-0">&gt;</span>
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="ENTER COMMAND_ (HELP for list)"
+                    className="flex-1 bg-transparent border-none outline-none text-[#00ff00] text-sm font-mono placeholder-[#00ff00]/20"
+                    autoFocus
+                />
+                <div className="hidden group-focus-within:block text-[10px] text-[#00ff00]/40 font-mono uppercase tracking-tighter">
+                    Press Enter to Execute
                 </div>
-            </div>
+            </form>
         </div>
     );
-};
+});
+

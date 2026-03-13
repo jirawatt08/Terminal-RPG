@@ -1,4 +1,5 @@
 import { Player, Item, PlayerStats } from '../types';
+import { CLASS_MODIFIERS, SET_BONUSES_DATA } from '../constants';
 
 export const getEquipmentStatBonus = (player: Player, stat: keyof PlayerStats) => {
     let total = 0;
@@ -40,30 +41,37 @@ export const getEffectTotal = (player: Player, type: 'lifesteal' | 'crit' | 'dod
 };
 
 export const calculateStats = (player: Player) => {
-    // 1. Calculate Base + Equipment
-    let rawStr = player.stats.str + getEquipmentStatBonus(player, 'str');
-    let rawAgi = player.stats.agi + getEquipmentStatBonus(player, 'agi');
-    let rawVit = player.stats.vit + getEquipmentStatBonus(player, 'vit');
-    let rawInt = player.stats.int + getEquipmentStatBonus(player, 'int');
-    let rawLuk = player.stats.luk + getEquipmentStatBonus(player, 'luk');
+    // 1. Pre-calculate equipment values
+    const weaponVal = getEquipmentValue(player.equipment.weapon);
+    const armorVal = getEquipmentValue(player.equipment.armor);
+    const accessoryVal = getEquipmentValue(player.equipment.accessory);
 
-    // 2. Apply Class Stat Bonuses
-    const cls = player.playerClass;
-    if (cls === 'Warrior') { rawVit *= 1.2; rawStr *= 1.1; }
-    else if (cls === 'Rogue') { rawAgi *= 1.2; rawLuk *= 1.1; }
-    else if (cls === 'Mage') { rawInt *= 1.2; rawVit *= 1.1; }
-    else if (cls === 'Paladin') { rawVit *= 1.3; rawInt *= 1.2; }
-    else if (cls === 'Berserker') { rawStr *= 1.3; rawAgi *= 1.2; }
-    else if (cls === 'Assassin') { rawAgi *= 1.3; rawLuk *= 1.2; }
-    else if (cls === 'Ranger') { rawAgi *= 1.2; rawStr *= 1.2; }
-    else if (cls === 'Archmage') { rawInt *= 1.4; rawVit *= 1.2; }
-    else if (cls === 'Necromancer') { rawInt *= 1.3; rawLuk *= 1.3; }
+    const activeSets = getSetBonus(player);
+    const hasSet = (name: string) => activeSets.includes(name);
 
-    const totalStr = Math.floor(rawStr);
-    const totalAgi = Math.floor(rawAgi);
-    const totalVit = Math.floor(rawVit);
-    const totalInt = Math.floor(rawInt);
-    const totalLuk = Math.floor(rawLuk);
+    // 2. Identify all modifiers
+    const clsMod = CLASS_MODIFIERS[player.playerClass] || {};
+    const setMods = activeSets.map(setName => SET_BONUSES_DATA[setName]).filter(Boolean);
+
+    const getMod = (key: keyof typeof clsMod) => {
+        let val = (clsMod[key] || 0);
+        setMods.forEach(m => { val += (m[key] || 0); });
+        return val;
+    };
+
+    // Stat multipliers (1.0 base + sum of bonuses)
+    const strMult = 1 + (clsMod.str ? clsMod.str - 1 : 0) + setMods.reduce((acc, m) => acc + (m.str || 0), 0);
+    const agiMult = 1 + (clsMod.agi ? clsMod.agi - 1 : 0) + setMods.reduce((acc, m) => acc + (m.agi || 0), 0);
+    const vitMult = 1 + (clsMod.vit ? clsMod.vit - 1 : 0) + setMods.reduce((acc, m) => acc + (m.vit || 0), 0);
+    const intMult = 1 + (clsMod.int ? clsMod.int - 1 : 0) + setMods.reduce((acc, m) => acc + (m.int || 0), 0);
+    const lukMult = 1 + (clsMod.luk ? clsMod.luk - 1 : 0) + setMods.reduce((acc, m) => acc + (m.luk || 0), 0);
+
+    // 3. Calculate Base + Equipment Attributes
+    const totalStr = Math.floor((player.stats.str + getEquipmentStatBonus(player, 'str')) * strMult);
+    const totalAgi = Math.floor((player.stats.agi + getEquipmentStatBonus(player, 'agi')) * agiMult);
+    const totalVit = Math.floor((player.stats.vit + getEquipmentStatBonus(player, 'vit')) * vitMult);
+    const totalInt = Math.floor((player.stats.int + getEquipmentStatBonus(player, 'int')) * intMult);
+    const totalLuk = Math.floor((player.stats.luk + getEquipmentStatBonus(player, 'luk')) * lukMult);
 
     // Derived milestones
     const strMilestones = Math.floor(totalStr / 10);
@@ -72,39 +80,36 @@ export const calculateStats = (player: Player) => {
     const intMilestones = Math.floor(totalInt / 10);
     const lukMilestones = Math.floor(totalLuk / 10);
 
-    const bonusAtkPct = strMilestones * 0.05 + (player.playerClass === 'Berserker' ? 0.3 : 0);
-    const bonusCritDmg = 1.5 + (strMilestones * 0.10) + (player.playerClass === 'Rogue' ? 0.2 : player.playerClass === 'Assassin' ? 0.4 : 0);
-
-    const bonusCritChance = agiMilestones * 2 + (player.playerClass === 'Rogue' ? 10 : player.playerClass === 'Assassin' ? 20 : player.playerClass === 'Ranger' ? 15 : 0);
-    const bonusDodgeChance = agiMilestones * 2 + (player.playerClass === 'Ranger' ? 15 : 0);
-
-    const bonusHpPct = vitMilestones * 0.05 + (player.playerClass === 'Warrior' ? 0.1 : player.playerClass === 'Paladin' ? 0.2 : 0);
-    const bonusDefPct = vitMilestones * 0.05 + (player.playerClass === 'Warrior' ? 0.1 : player.playerClass === 'Paladin' ? 0.2 : 0);
-
+    // 4. Final Derived Stats
+    const bonusAtkPct = strMilestones * 0.05 + (clsMod.atk || 0);
+    const bonusDefPct = vitMilestones * 0.05 + (clsMod.def || 0);
+    const bonusHpPct = vitMilestones * 0.05 + (clsMod.hp || 0);
     const bonusManaRegen = intMilestones * 2 + (player.playerClass === 'Mage' ? 5 : player.playerClass === 'Archmage' ? 15 : 0);
-    const bonusMagicDmgPct = intMilestones * 0.05 + (player.playerClass === 'Mage' ? 0.2 : player.playerClass === 'Archmage' ? 0.4 : player.playerClass === 'Necromancer' ? 0.2 : player.playerClass === 'Paladin' ? 0.1 : 0);
+    const bonusMagicDmgPct = intMilestones * 0.05 + (clsMod.magicAtk || 0);
 
-    const skillHaste = Math.min(50, Math.floor(totalAgi / 5) + Math.floor(totalInt / 10));
+    const bonusCritChance = agiMilestones * 2 + (clsMod.crit || 0);
+    const bonusDodgeChance = agiMilestones * 2 + (clsMod.dodge || 0);
+    const bonusCritDmg = 1.5 + (strMilestones * 0.10) + (clsMod.critDmg || 0);
 
-    const activeSets = getSetBonus(player);
-    const hasSet = (name: string) => activeSets.includes(name);
+    const skillHaste = Math.min(60, Math.floor(totalAgi / 5) + Math.floor(totalInt / 10) + getMod('skillHaste'));
+    
+    const setBonusAtkPct = setMods.reduce((acc, m) => acc + (m.atk || 0), 0);
+    const setBonusDefPct = setMods.reduce((acc, m) => acc + (m.def || 0), 0);
+    const setBonusMagicPct = setMods.reduce((acc, m) => acc + (m.magicAtk || 0), 0);
+    const setBonusHpPct = setMods.reduce((acc, m) => acc + (m.hp || 0), 0);
+    const setBonusMpPct = setMods.reduce((acc, m) => acc + (m.mp || 0), 0);
+    const setReflection = getMod('reflection');
 
-    const setBonusAtkPct = (hasSet('Berserker') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
-    const setBonusDefPct = (hasSet('Iron') ? 0.2 : 0) + (hasSet('Guardian') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
-    const setBonusMagicPct = (hasSet('Sage') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
-    const setBonusHpPct = (hasSet('Guardian') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
-    const setBonusMpPct = (hasSet('Sage') ? 0.2 : 0) + (hasSet('Celestial') ? 0.1 : 0);
-    const setBonusGoldPct = (hasSet('Merchant') ? 0.5 : 0) + (player.rebornUpgrades?.goldBonus || 0) / 100;
-    const setBonusExpPct = (hasSet('Explorer') ? 0.5 : 0) + (player.rebornUpgrades?.expBonus || 0) / 100;
-    const setBonusDodge = (hasSet('Phantom') ? 15 : 0) + (hasSet('Shadow') ? 10 : 0);
-    const setBonusCrit = (hasSet('Assassin') ? 15 : 0) + (hasSet('Shadow') ? 10 : 0);
-    const setBonusLifesteal = (hasSet('Vampire') ? 15 : 0);
+    const setBonusGoldPct = getMod('gold') + (player.rebornUpgrades?.goldBonus || 0) / 100;
+    const setBonusExpPct = getMod('exp') + (player.rebornUpgrades?.expBonus || 0) / 100;
+    const setBonusDodge = setMods.reduce((acc, m) => acc + (m.dodge || 0), 0);
+    const setBonusCrit = setMods.reduce((acc, m) => acc + (m.crit || 0), 0);
+    const setBonusLifesteal = getMod('lifesteal');
 
-    // Final Derived Stats
     const rebornHpBonus = (player.rebornUpgrades?.hpBonus || 0) / 100;
     const rebornAtkBonus = (player.rebornUpgrades?.atkBonus || 0) / 100;
 
-    const maxHp = Math.floor((player.maxHp + (totalVit * 40) + (getEquipmentValue(player.equipment.armor) * 10)) * (1 + bonusHpPct + setBonusHpPct + rebornHpBonus));
+    const maxHp = Math.floor((player.maxHp + (totalVit * 40) + (armorVal * 10)) * (1 + bonusHpPct + setBonusHpPct + rebornHpBonus));
     
     const classBonusMp = (player.playerClass === 'Mage' ? 200 : player.playerClass === 'Archmage' ? 500 : player.playerClass === 'Necromancer' ? 300 : player.playerClass === 'Paladin' ? 150 : 0);
     const maxMp = Math.floor((player.maxMp + (totalInt * 12) + classBonusMp) * (1 + setBonusMpPct));
@@ -113,25 +118,28 @@ export const calculateStats = (player: Player) => {
     const potionGoldBonus = player.potions?.filter(p => p.type === 'coin').reduce((acc, p) => acc + p.value, 0) || 0;
     const potionLuckBonus = player.potions?.filter(p => p.type === 'luck').reduce((acc, p) => acc + p.value, 0) || 0;
 
-    const totalAttack = Math.floor((player.baseAttack + (totalStr * 2) + getEquipmentValue(player.equipment.weapon)) * (1 + bonusAtkPct + setBonusAtkPct + rebornAtkBonus));
-    const totalDefense = Math.floor((player.baseDefense + (totalVit * 1.2) + getEquipmentValue(player.equipment.armor)) * (1 + bonusDefPct + setBonusDefPct));
-    const totalMagicAttack = Math.floor((totalInt * 3 + getEquipmentValue(player.equipment.weapon)) * (1 + bonusMagicDmgPct + setBonusMagicPct));
+    const totalAttack = Math.floor((player.baseAttack + (totalStr * 2) + weaponVal) * (1 + bonusAtkPct + setBonusAtkPct + rebornAtkBonus));
+    const totalDefense = Math.floor((player.baseDefense + (totalVit * 1.2) + armorVal) * (1 + bonusDefPct + setBonusDefPct));
+    const totalMagicAttack = Math.floor((totalInt * 3 + weaponVal) * (1 + bonusMagicDmgPct + setBonusMagicPct));
     
-    // Potion Luck is now a percentage boost
     const baseLuck = totalLuk + getEffectTotal(player, 'luck');
     const totalLuck = Math.floor(baseLuck * (1 + potionLuckBonus / 100));
     
     const totalStatusChance = 2 + Math.floor(totalInt / 5) + getEffectTotal(player, 'statusChance');
 
     let critChance = getEffectTotal(player, 'crit') + bonusCritChance + setBonusCrit;
-    let finalCritDmg = bonusCritDmg;
+    let finalCritDmg = bonusCritDmg + getMod('critDmg'); 
+    // Duelist set has it in setMods which is handled by getMod('critDmg') now.
+    // Wait, the previous logic was + (hasSet('Duelist') ? 0.4 : 0). 
+    // My getMod handles it correctly.
+
     if (critChance > 100) {
         finalCritDmg += (critChance - 100) / 100;
         critChance = 100;
     }
     const dodgeChance = Math.min(75, getEffectTotal(player, 'dodge') + bonusDodgeChance + setBonusDodge);
     const reduction = Math.min(80, getEffectTotal(player, 'reduction'));
-    const lifesteal = Math.min(100, getEffectTotal(player, 'lifesteal') + (player.playerClass === 'Berserker' ? 10 : player.playerClass === 'Necromancer' ? 15 : 0) + setBonusLifesteal);
+    const lifesteal = Math.min(100, getEffectTotal(player, 'lifesteal') + (clsMod.lifesteal || 0) + setBonusLifesteal);
     
     const pointBonusVal = player.rebornUpgrades?.pointBonus || 0;
     const nextRebornPoints = Math.floor((Math.floor(player.level / 10) + player.stage) * (1 + pointBonusVal / 100)) || 0;
@@ -153,6 +161,7 @@ export const calculateStats = (player: Player) => {
         critChance, finalCritDmg, dodgeChance, lifesteal,
         bonusManaRegen,
         setBonusGoldPct, setBonusExpPct,
+        setReflection,
         potionExpBonus, potionGoldBonus, potionLuckBonus,
         nextRebornPoints,
         activeSets,

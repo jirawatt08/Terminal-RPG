@@ -65,6 +65,7 @@ export function usePlayerState(addLog: (msg: string, type?: any) => void) {
         }
 
         const pointBonusVal = player.rebornUpgrades?.pointBonus || 0;
+        const statBonusVal = player.rebornUpgrades?.statBonus || 0;
         const currentLvl = player.level || 1;
         const currentStg = player.stage || 1;
         const pointsEarned = Math.floor((Math.floor(currentLvl / 10) + currentStg) * (1 + pointBonusVal / 100)) || 0;
@@ -94,8 +95,24 @@ export function usePlayerState(addLog: (msg: string, type?: any) => void) {
                 rebornPoints: player.rebornPoints + pointsEarned,
                 rebornCount: player.rebornCount + 1,
                 rebornUpgrades: player.rebornUpgrades,
-                rebornHistory: [...player.rebornHistory, record].slice(-10)
+                rebornHistory: [...player.rebornHistory, record].slice(-10),
+                statPoints: statBonusVal
             });
+        } else {
+            // Save to local storage for guests
+            const guestSave = {
+                ...player,
+                ...INITIAL_PLAYER_STATE,
+                uid: undefined,
+                displayName: undefined,
+                photoURL: undefined,
+                rebornPoints: player.rebornPoints + pointsEarned,
+                rebornCount: player.rebornCount + 1,
+                rebornUpgrades: player.rebornUpgrades,
+                rebornHistory: [...player.rebornHistory, record].slice(-10),
+                statPoints: statBonusVal
+            };
+            localStorage.setItem('terminal_rpg_save', JSON.stringify(guestSave));
         }
 
         setPlayer(prev => ({
@@ -107,7 +124,8 @@ export function usePlayerState(addLog: (msg: string, type?: any) => void) {
             rebornPoints: prev.rebornPoints + pointsEarned,
             rebornCount: prev.rebornCount + 1,
             rebornUpgrades: prev.rebornUpgrades,
-            rebornHistory: [...prev.rebornHistory, record].slice(-10)
+            rebornHistory: [...prev.rebornHistory, record].slice(-10),
+            statPoints: statBonusVal
         }));
 
         setGameState('IDLE');

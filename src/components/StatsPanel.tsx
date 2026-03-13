@@ -7,7 +7,7 @@ import { SET_BONUSES } from '../constants';
 
 type StatsTab = 'ATTRIBUTES' | 'COMBAT' | 'PASSIVES' | 'REBORN';
 
-export const StatsPanel: React.FC = () => {
+export const StatsPanel: React.FC = React.memo(() => {
   const { player, stats, actions, setPlayer } = useGame();
   const [activeTab, setActiveTab] = useState<StatsTab>('ATTRIBUTES');
 
@@ -392,4 +392,4 @@ export const StatsPanel: React.FC = () => {
       </div>
     </div>
   );
-};
+});

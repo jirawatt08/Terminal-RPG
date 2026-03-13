@@ -72,26 +72,26 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
 
         let totalHeal = 0;
         targets.forEach(target => {
-            if (target.passive?.type === 'dodge' && Math.random() * 100 < target.passive.value) {
+            const passive = target.passive;
+            
+            if (passive?.type === 'dodge' && Math.random() * 100 < passive.value) {
                 addLog(`> MISSED! ${target.name} dodged.`, 'info');
                 return;
             }
 
             // Damage Reduction Formula: Final = Raw * (100 / (100 + Defense))
-            // Players have 0 penetration by default for now (or maybe base on some stat?)
             const effectiveDef = target.defense;
             const damageFactor = 100 / (100 + effectiveDef);
             let finalDmg = Math.max(1, Math.floor(rawDamage * damageFactor));
             
-            if (target.passive?.type === 'shield') finalDmg = Math.floor(finalDmg * (1 - target.passive.value / 100));
+            if (passive?.type === 'shield') finalDmg = Math.floor(finalDmg * (1 - passive.value / 100));
 
             addLog(`> ${isCrit ? 'CRITICAL ' : ''}${usedSkill ? '[' + skill!.name + ']' : 'Attack'} on ${target.name} for ${finalDmg} dmg.`, 'combat');
             target.hp -= finalDmg;
 
-            // Apply Skill Status Effect if applicable
+            // Apply Skill Status Effect
             if (usedSkill && skill?.statusEffect) {
                 if (Math.random() * 100 < skill.statusEffect.chance) {
-                    // Check Enemy Resistance
                     if (Math.random() * 100 < target.statusResistance) {
                         addLog(`> ${target.name} resisted the ${skill.name} effect!`, 'info');
                     } else {
@@ -105,18 +105,18 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                 }
             }
 
-            if (target.passive?.type === 'thorns' || target.passive?.type === 'reflect') {
-                const reflect = Math.floor(finalDmg * (target.passive.value / 100));
+            // Passive Procs: Thorns/Reflect
+            if (passive?.type === 'thorns' || passive?.type === 'reflect') {
+                const reflect = Math.floor(finalDmg * (passive.value / 100));
                 p.hp -= reflect;
                 addLog(`[PASSIVE] ${target.name} reflected ${reflect} damage!`, 'error');
             }
 
-            // Status Procs
+            // Status Procs from Equipment
             Object.values(p.equipment).forEach(item => {
                 const i = item as Item | null;
                 if (i?.effect && ['poison', 'burn', 'stun', 'freeze'].includes(i.effect.type)) {
                     if ((Math.floor(Math.random() * 10) + 1) <= totalStatusChance) {
-                        // Check Enemy Resistance
                         if (Math.random() * 100 < target.statusResistance) {
                             addLog(`> ${target.name} resisted the ${i.effect.type}!`, 'info');
                             return;
@@ -191,6 +191,16 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
         if (enemy.passive?.type === 'berserk' && enemy.hp < enemy.maxHp * 0.3) dmg = Math.floor(dmg * (1 + enemy.passive.value / 100));
         if (reduction > 0) dmg = Math.floor(dmg * (1 - reduction / 100));
         p.hp -= dmg;
+
+        // Player Damage Reflection (Reflex Set)
+        const { setReflection } = statsRef.current;
+        if (setReflection > 0 && dmg > 0) {
+            const reflected = Math.floor(dmg * (setReflection / 100));
+            if (reflected > 0) {
+                enemy.hp -= reflected;
+                addLog(`[SET] Reflected ${reflected} damage back to ${enemy.name}!`, 'success');
+            }
+        }
 
         // Auto-Heal
         const potion = p.potions.find(pot => pot.type === 'health');
@@ -289,9 +299,14 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                         p.exp += exp; p.gold += gold;
                         addLog(`+ ${exp} EXP | + ${gold} Gold`, 'info');
 
-                        if (p.exp >= p.maxExp) {
-                            p.level++; p.exp -= p.maxExp; p.maxExp = Math.floor(p.maxExp * (p.level < 25 ? 1.15 : 1.5));
-                            p.statPoints += 3 + p.rebornUpgrades.statBonus; p.hp = maxHp;
+                        while (p.exp >= p.maxExp) {
+                            p.level++; 
+                            p.exp -= p.maxExp; 
+                            // Growth rate: 15% early, 50% mid, 10% late (40+)
+                            const growthRate = p.level < 25 ? 1.15 : p.level < 40 ? 1.5 : 1.1;
+                            p.maxExp = Math.floor(p.maxExp * growthRate);
+                            p.statPoints += 3 + (p.rebornUpgrades?.statBonus || 0); 
+                            p.hp = maxHp;
                             addLog(`[LEVEL UP] LV.${p.level}!`, 'success');
                         }
 
