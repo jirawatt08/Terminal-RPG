@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, GameState, Item, StatusEffect, LogType, StatusEffectType, EquippableItem } from '../types';
+import { Player, Enemy, GameState, LogType, StatusEffectType, EquippableItem } from '../types';
 import { generateEnemy, generateEnemies, generateLoot } from '../utils';
 import { CLASS_SKILLS } from '../constants';
 import { CalculatedStats } from '../logic/stats';
-import { calculateAttack, processStatusTick } from '../logic/combatRules';
+import { calculateAttack, processStatusTick, calculateExpGain, calculateGoldGain, calculateLevelUp } from '../logic/combatRules';
 
 interface UseCombatProps {
     player: Player;
@@ -56,7 +56,7 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
         targets.forEach(target => {
             const result = calculateAttack(
                 { name: p.displayName || 'Player', stats: currentStats },
-                target,
+                { name: target.name, defense: target.defense, statusResistance: target.statusResistance, hp: target.hp, maxHp: target.maxHp, armorPenetration: target.armorPenetration, passive: target.passive },
                 { skill: usedSkill ? skill : undefined, isPlayerAttacking: true }
             );
 
@@ -122,9 +122,9 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
 
         const result = calculateAttack(
             { name: enemy.name, stats: { totalAttack: enemy.attack, critChance: enemy.critChance, finalCritDmg: enemy.critDamage } },
-            p,
+            { name: p.displayName || 'Player', defense: currentStats.totalDefense, statusResistance: 0, hp: p.hp, maxHp: currentStats.maxHp, passive: undefined },
             { 
-                skill: (enemy.skill && enemy.skill.currentCooldown <= 0) ? enemy.skill : undefined, 
+                skill: (enemy.skill && enemy.skill.currentCooldown <= 0) ? { ...enemy.skill, type: enemy.skill.type || 'physical' } : undefined, 
                 isPlayerAttacking: false 
             }
         );
@@ -170,14 +170,15 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
 
     // Main Loop
     useEffect(() => {
-        if (['IDLE', 'SETTINGS', 'VILLAGE'].includes(gameState)) return;
+        if (['IDLE', 'SETTINGS', 'VILLAGE', 'DASHBOARD', 'PATCHES'].includes(gameState)) return;
 
         const interval = setInterval(() => {
             if (document.hidden) return;
 
             setPlayer(prev => {
                 let p = { ...prev, inventory: [...prev.inventory], equipment: { ...prev.equipment }, statusEffects: [...prev.statusEffects], potions: [...prev.potions] };
-                const { maxHp, maxMp, bonusManaRegen, totalLuck, setBonusExpPct, setBonusGoldPct, potionExpBonus, potionGoldBonus } = statsRef.current;
+                const currentStats = statsRef.current;
+                const { maxHp, maxMp, bonusManaRegen, totalLuck, setBonusExpPct, setBonusGoldPct, potionExpBonus, potionGoldBonus } = currentStats;
 
                 if (gameState === 'DEAD') {
                     if (p.hp < maxHp) {
@@ -195,11 +196,9 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                 if (enemies.length === 0) {
                     const isBoss = gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT';
                     const stage = gameState === 'NEXT_BOSS_FIGHT' ? p.stage + 1 : p.stage;
-                    if (gameState !== 'DASHBOARD' || isBoss) {
-                        enemies = generateEnemies(p.level, stage, isBoss);
-                        setCurrentEnemies(enemies);
-                        addLog(`[ENCOUNTER] ${enemies.length > 1 ? 'A group appeared!' : 'Found ' + enemies[0].name}`, 'warning');
-                    }
+                    enemies = generateEnemies(p.level, stage, isBoss);
+                    setCurrentEnemies(enemies);
+                    addLog(`[ENCOUNTER] ${enemies.length > 1 ? 'A group appeared!' : 'Found ' + enemies[0].name}`, 'warning');
                     return p;
                 }
 
@@ -238,27 +237,23 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
                             return { ...pot, duration: pot.duration - 1 };
                         }).filter(pot => pot.duration > 0);
                         
-                        // EXP Rework: % of maxExp based on difficulty efficiency
-                        const basePct = target.isBoss ? 0.025 : 0.005;
-                        const currentStg = gameState === 'NEXT_BOSS_FIGHT' ? p.stage + 1 : p.stage;
-                        // Efficiency: 1.0 if Stage = Level/5. Ranges 0.2 to 2.0.
-                        const efficiency = Math.max(0.2, Math.min(2.0, currentStg / (Math.max(1, p.level) / 5)));
-                        
-                        const baseGained = (target.expReward * 0.2) + (p.maxExp * basePct * efficiency);
-                        const expBonusMult = (1 + setBonusExpPct + (potionExpBonus / 100));
-                        const exp = Math.floor(baseGained * expBonusMult);
+                        // Using extracted math
+                        const exp = calculateExpGain(
+                            target, p, 
+                            { setBonusExpPct, potionExpBonus }, 
+                            gameState === 'NEXT_BOSS_FIGHT'
+                        );
+                        const gold = calculateGoldGain(target, { setBonusGoldPct, potionGoldBonus });
 
-                        const gold = Math.floor(target.goldReward * (1 + setBonusGoldPct + (potionGoldBonus / 100)));
                         p.exp += exp; p.gold += gold;
                         addLog(`+ ${exp} EXP | + ${gold} Gold`, 'info');
 
-                        while (p.exp >= p.maxExp) {
-                            p.level++; 
-                            p.exp -= p.maxExp; 
-                            // Growth rate: 15% early, 50% mid, 10% late (40+)
-                            const growthRate = p.level < 25 ? 1.15 : p.level < 40 ? 1.5 : 1.1;
-                            p.maxExp = Math.floor(p.maxExp * growthRate);
-                            p.statPoints += 3 + (p.rebornUpgrades?.statBonus || 0); 
+                        const levelUpResult = calculateLevelUp(p);
+                        if (levelUpResult.levelsGained > 0) {
+                            p.level = levelUpResult.level;
+                            p.exp = levelUpResult.exp;
+                            p.maxExp = levelUpResult.maxExp;
+                            p.statPoints = levelUpResult.statPoints;
                             p.hp = maxHp;
                             addLog(`[LEVEL UP] LV.${p.level}!`, 'success');
                         }

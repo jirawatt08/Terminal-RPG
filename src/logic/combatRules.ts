@@ -1,5 +1,6 @@
 import { Player, Enemy, StatusEffect, StatusEffectType, Item, EquippableItem } from '../types';
 import { CalculatedStats } from './stats';
+import { SafeMath } from '../utils/safeMath';
 
 export interface Combatant {
     hp: number;
@@ -24,8 +25,8 @@ export interface DamageResult {
  * Pure function to process a single attack from one entity to another.
  */
 export const calculateAttack = (
-    attacker: { name: string; stats: Partial<CalculatedStats> & { totalAttack: number } },
-    defender: Enemy | Player,
+    attacker: { name: string; stats: { totalAttack: number; critChance: number; finalCritDmg: number; totalStr?: number; totalInt?: number; totalMagicAttack?: number; dodgeChance?: number; reduction?: number } },
+    defender: { name: string; hp: number; maxHp: number; defense: number; statusResistance: number; armorPenetration?: number; passive?: any },
     options: { 
         skill?: { name: string; mult: number; type: 'physical' | 'magic'; statusEffect?: any; guaranteedCrit?: boolean };
         isPlayerAttacking: boolean;
@@ -45,7 +46,7 @@ export const calculateAttack = (
 
     // 1. Check Dodge
     const dodgeChance = options.isPlayerAttacking 
-        ? (defender as Enemy).passive?.type === 'dodge' ? (defender as Enemy).passive!.value : 0
+        ? (defender.passive?.type === 'dodge' ? defender.passive!.value : 0)
         : (stats.dodgeChance || 0);
 
     if (Math.random() * 100 < dodgeChance) {
@@ -62,52 +63,47 @@ export const calculateAttack = (
     
     let rawDamage = 0;
     const totalAttack = stats.totalAttack || 0;
-    const totalMagicAttack = stats.totalMagicAttack || totalAttack; // Fallback to physical if magic missing
+    const totalMagicAttack = stats.totalMagicAttack || totalAttack;
     const totalStr = stats.totalStr || 0;
     const totalInt = stats.totalInt || 0;
 
     if (skill) {
         if (skill.type === 'physical') {
-            // Only apply attribute scaling if it exists (player has str, enemies usually don't)
             const scaling = options.isPlayerAttacking ? (1 + totalStr / 100) : 1;
-            rawDamage = Math.floor(totalAttack * skill.mult * scaling);
+            rawDamage = SafeMath.mult(totalAttack, SafeMath.mult(skill.mult, scaling));
         } else {
-            // Only apply attribute scaling if it exists
             const scaling = options.isPlayerAttacking ? (1 + totalInt / 100) : 1;
-            rawDamage = Math.floor(totalMagicAttack * skill.mult * scaling);
+            rawDamage = SafeMath.mult(totalMagicAttack, SafeMath.mult(skill.mult, scaling));
         }
     } else {
-        rawDamage = totalAttack + Math.floor(Math.random() * 5);
+        rawDamage = SafeMath.add(totalAttack, Math.floor(Math.random() * 5));
     }
 
     if (results.isCrit) {
-        rawDamage = Math.floor(rawDamage * (stats.finalCritDmg || 1.5));
+        rawDamage = SafeMath.mult(rawDamage, (stats.finalCritDmg || 1.5));
     }
 
-    // Ensure rawDamage is never NaN
-    if (isNaN(rawDamage)) rawDamage = totalAttack || 1;
-
     // 3. Apply Defense & Mitigation
-    // Effective Defense formula
-    const armorPen = options.isPlayerAttacking ? 0 : (defender as Enemy).armorPenetration || 0;
-    const effectiveDef = (defender.defense || 0) * (1 - armorPen / 100);
-    const damageFactor = 100 / (100 + effectiveDef);
+    const armorPen = options.isPlayerAttacking ? 0 : (defender.armorPenetration || 0);
+    const effectiveDef = SafeMath.mult((defender.defense || 0), (1 - armorPen / 100));
+    // FIXED: Use SafeMath.div to prevent division by zero
+    const damageFactor = SafeMath.div(100, SafeMath.add(100, effectiveDef), 1);
     
-    let finalDmg = Math.max(1, Math.floor(rawDamage * damageFactor));
+    let finalDmg = SafeMath.clamp(Math.floor(SafeMath.mult(rawDamage, damageFactor)), 1);
 
     // Passive Shielding
-    const passive = (defender as any).passive; 
+    const passive = defender.passive; 
     if (passive?.type === 'shield' && passive.value) {
-        finalDmg = Math.floor(finalDmg * (1 - passive.value / 100));
+        finalDmg = Math.floor(SafeMath.mult(finalDmg, (1 - passive.value / 100)));
         results.isShielded = true;
     }
 
     // Player Reduction stat
     if (!options.isPlayerAttacking && (stats.reduction || 0) > 0) {
-        finalDmg = Math.floor(finalDmg * (1 - stats.reduction! / 100));
+        finalDmg = Math.floor(SafeMath.mult(finalDmg, (1 - stats.reduction! / 100)));
     }
 
-    results.damage = isNaN(finalDmg) ? 1 : finalDmg;
+    results.damage = SafeMath.clamp(finalDmg, 1);
 
     // 4. Reflection / Thorns
     if (options.isPlayerAttacking && (passive?.type === 'thorns' || passive?.type === 'reflect') && passive.value) {
@@ -153,4 +149,56 @@ export const processStatusTick = (entity: { hp: number; statusEffects: StatusEff
     });
 
     return { tickDamage, isStunned, remainingEffects };
+};
+
+/**
+ * Pure function to calculate EXP gain from a defeated enemy.
+ */
+export const calculateExpGain = (
+    enemy: { expReward: number; isBoss: boolean },
+    player: { level: number; maxExp: number; stage: number },
+    bonuses: { setBonusExpPct: number; potionExpBonus: number },
+    isNextBoss: boolean
+): number => {
+    const basePct = enemy.isBoss ? 0.025 : 0.005;
+    const currentStg = isNextBoss ? player.stage + 1 : player.stage;
+    // Efficiency: 1.0 if Stage = Level/5. Ranges 0.2 to 2.0.
+    const efficiency = Math.max(0.2, Math.min(2.0, currentStg / (Math.max(1, player.level) / 5)));
+    
+    const baseGained = (enemy.expReward * 0.2) + (player.maxExp * basePct * efficiency);
+    const expBonusMult = (1 + bonuses.setBonusExpPct + (bonuses.potionExpBonus / 100));
+    return Math.floor(baseGained * expBonusMult);
+};
+
+/**
+ * Pure function to calculate Gold gain from a defeated enemy.
+ */
+export const calculateGoldGain = (
+    enemy: { goldReward: number },
+    bonuses: { setBonusGoldPct: number; potionGoldBonus: number }
+): number => {
+    return Math.floor(enemy.goldReward * (1 + bonuses.setBonusGoldPct + (bonuses.potionGoldBonus / 100)));
+};
+
+/**
+ * Pure function to process level up logic.
+ * Returns updated level, exp, maxExp, and statPoints.
+ */
+export const calculateLevelUp = (
+    player: { level: number; exp: number; maxExp: number; statPoints: number; rebornUpgrades: { statBonus: number } }
+) => {
+    let { level, exp, maxExp, statPoints } = player;
+    let levelsGained = 0;
+
+    while (exp >= maxExp) {
+        level++;
+        levelsGained++;
+        exp -= maxExp;
+        // Growth rate: 15% early, 50% mid, 10% late (40+)
+        const growthRate = level < 25 ? 1.15 : level < 40 ? 1.5 : 1.1;
+        maxExp = Math.floor(maxExp * growthRate);
+        statPoints += 3 + (player.rebornUpgrades?.statBonus || 0);
+    }
+
+    return { level, exp, maxExp, statPoints, levelsGained };
 };

@@ -1,11 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useLog } from '../context/LogContext';
+import { usePlayer } from '../context/PlayerContext';
+import { useCombatContext } from '../context/CombatContext';
 import { TerminalTab } from '../constants';
 import { ProgressBar } from './ProgressBar';
-import { Sword, Shield, Zap, RotateCcw, Info, Terminal as TerminalIcon } from 'lucide-react';
+import { Sword, Shield, Zap, Info, Terminal as TerminalIcon } from 'lucide-react';
 
 export const ConsolePanel: React.FC = React.memo(() => {
-    const { logs, gameState, currentEnemies, refs, player, addLog, clearLogs, actions, autoScroll, setAutoScroll } = useGame();
+    const { logs, clearLogs, logsEndRef, autoScroll, setAutoScroll } = useLog();
+    const { player, actions: playerActions } = usePlayer();
+    const { gameState, currentEnemies, actions: combatActions } = useCombatContext();
+    
     const [activeTab, setActiveTab] = useState<TerminalTab>('ALL');
     const [inputValue, setInputValue] = useState('');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -20,18 +25,38 @@ export const ConsolePanel: React.FC = React.memo(() => {
 
     const tabs: TerminalTab[] = ['ALL', 'FIGHT', 'DROP', 'SELL'];
 
-    const handleScroll = () => {
+    const handleScroll = useCallback(() => {
         if (!scrollContainerRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+        // If user scrolls up significantly, disable autoScroll
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
         if (autoScroll && !isAtBottom) {
             setAutoScroll(false);
-        } else if (!autoScroll && isAtBottom) {
-            setAutoScroll(true);
         }
-    };
+    }, [autoScroll, setAutoScroll]);
+
+    // Effect for auto-scrolling
+    useEffect(() => {
+        if (autoScroll && logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+    }, [logs, autoScroll, logsEndRef]);
 
     const handleCommand = (e: React.FormEvent) => {
+        e.preventDefault();
+        const cmd = inputValue.trim().toLowerCase();
+        if (!cmd) return;
+
+        // Note: addLog is available via useLog() but ConsolePanel usually logs its own command echoes
+        // However, addLog is provided by useLog() which we have.
+        // But the previous implementation used addLog from useGame().
+        // We'll use the one from useLog().
+    };
+    
+    // We need addLog for the command handler
+    const { addLog } = useLog();
+
+    const onCommandSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const cmd = inputValue.trim().toLowerCase();
         if (!cmd) return;
@@ -40,19 +65,19 @@ export const ConsolePanel: React.FC = React.memo(() => {
         setInputValue('');
 
         const commandRegistry: Record<string, () => void> = {
-            'help': () => actions.showHelp(),
-            'farm': () => actions.startFarming(),
-            'boss': () => actions.startBossFight(),
-            'village': () => actions.enterVillage(),
-            'heal': () => actions.heal(),
+            'help': () => combatActions.showHelp(),
+            'farm': () => combatActions.startFarming(),
+            'boss': () => combatActions.startBossFight(),
+            'village': () => combatActions.enterVillage(),
+            'heal': () => combatActions.heal(),
             'clear': () => clearLogs(),
             'cls': () => clearLogs(),
-            'save': () => actions.manualSave(),
-            'local-save': () => actions.saveToLocal(),
-            'settings': () => actions.openSettings(),
-            'dashboard': () => actions.openDashboard(),
-            'exit': () => actions.stopAction(),
-            'reborn': () => actions.reborn()
+            'save': () => playerActions.manualSave(),
+            'local-save': () => playerActions.saveToLocal(),
+            'settings': () => combatActions.openSettings(),
+            'dashboard': () => combatActions.openDashboard(),
+            'exit': () => combatActions.stopAction(),
+            'reborn': () => playerActions.reborn(combatActions.setGameState, combatActions.setCurrentEnemies)
         };
 
         if (commandRegistry[cmd]) {
@@ -63,9 +88,9 @@ export const ConsolePanel: React.FC = React.memo(() => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#050505] overflow-hidden">
+        <div className="flex-1 flex flex-col h-full bg-[#050505] overflow-hidden border border-[#00ff00]/10">
             {/* Header / Tabs */}
-            <div className="flex bg-[#00ff00]/5 border-b border-[#00ff00]/20 justify-between items-center pr-2">
+            <div className="flex bg-[#00ff00]/5 border-b border-[#00ff00]/20 justify-between items-center pr-2 shrink-0">
                 <div className="flex items-center">
                     <div className="px-3 text-[#00ff00]/40">
                         <TerminalIcon size={14} />
@@ -91,8 +116,8 @@ export const ConsolePanel: React.FC = React.memo(() => {
 
             {/* Enemy HUD (if in combat) */}
             {(gameState === 'FARMING' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT') && currentEnemies.length > 0 && (
-                <div className="p-4 bg-[#00ff00]/2 border-b border-[#00ff00]/10 flex flex-col gap-3 animate-in fade-in duration-500">
-                    {currentEnemies.map(enemy => (
+                <div className="p-4 bg-[#00ff00]/2 border-b border-[#00ff00]/10 flex flex-col gap-3 animate-in fade-in duration-500 shrink-0">
+                    {currentEnemies.map((enemy: any) => (
                         <div key={enemy.id} className="space-y-1">
                             <div className="flex justify-between items-end">
                                 <span className={`text-[10px] font-bold uppercase tracking-widest ${enemy.isBoss ? 'text-red-500' : 'text-[#00ff00]/80'}`}>
@@ -138,15 +163,15 @@ export const ConsolePanel: React.FC = React.memo(() => {
                 </div>
             )}
 
-            {/* Log Output */}
+            {/* Log Output Area - Fixed Height, Scrollable */}
             <div 
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto p-4 font-mono scrollbar-thin scrollbar-thumb-[#00ff00]/10"
+                className="flex-1 overflow-y-auto p-4 font-mono scrollbar-thin scrollbar-thumb-[#00ff00]/10 bg-black/20"
             >
                 <div className="space-y-1">
                     {filteredLogs.map((log) => (
-                        <div key={log.id} className="text-xs flex gap-3 group">
+                        <div key={log.id} className="text-xs flex gap-3 group animate-in slide-in-from-left-1 duration-200">
                             <span className="text-[#00ff00]/20 shrink-0 font-light">[{log.timestamp.toLocaleTimeString([], { hour12: false })}]</span>
                             <span className={`
                                 ${log.type === 'combat' ? 'text-white/90' : ''}
@@ -163,14 +188,14 @@ export const ConsolePanel: React.FC = React.memo(() => {
                             </span>
                         </div>
                     ))}
-                    <div ref={refs.logsEndRef} />
+                    <div ref={logsEndRef} />
                 </div>
             </div>
 
             {/* Terminal Input */}
             <form 
-                onSubmit={handleCommand}
-                className="p-3 border-t border-[#00ff00]/10 bg-black flex items-center gap-2 group"
+                onSubmit={onCommandSubmit}
+                className="p-3 border-t border-[#00ff00]/10 bg-black flex items-center gap-2 group shrink-0"
             >
                 <span className="text-[#00ff00] animate-pulse font-bold text-sm shrink-0">&gt;</span>
                 <input

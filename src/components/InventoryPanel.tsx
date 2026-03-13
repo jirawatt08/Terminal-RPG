@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useGame } from '../context/GameContext';
+import { usePlayer } from '../context/PlayerContext';
 import { Item, Rarity, ItemType } from '../types';
 import { RARITY_COLORS } from '../constants';
 import { Package, Filter, SortAsc, Lock, Shield } from 'lucide-react';
@@ -7,7 +7,7 @@ import { Package, Filter, SortAsc, Lock, Shield } from 'lucide-react';
 type SortMode = 'RARITY' | 'VALUE' | 'NAME';
 
 export const InventoryPanel: React.FC = React.memo(() => {
-  const { player, stats, actions } = useGame();
+  const { player, stats, actions } = usePlayer();
   const [filter, setFilter] = useState<Rarity | 'ALL'>('ALL');
   const [typeFilter, setTypeFilter] = useState<ItemType | 'ALL'>('ALL');
   const [sortBy, setSortMode] = useState<SortMode>('RARITY');

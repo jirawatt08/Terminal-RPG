@@ -17,25 +17,25 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
   },
   {
     name: 'Goblin',
-    skill: { name: 'Quick Stab', mult: 1.2, cooldown: 2 },
+    skill: { name: 'Quick Stab', type: 'physical', mult: 1.2, cooldown: 2 },
     passive: { type: 'dodge', value: 10, description: '10% chance to dodge attacks.' },
     hpMult: 0.8, atkMult: 1.1, defMult: 0.7
   },
   {
     name: 'Skeleton',
-    skill: { name: 'Bone Toss', mult: 1.3, cooldown: 3 },
+    skill: { name: 'Bone Toss', type: 'physical', mult: 1.3, cooldown: 3 },
     passive: { type: 'thorns', value: 10, description: 'Reflects 10% of physical damage back.' },
     hpMult: 1.2, atkMult: 1.5, defMult: 1.0
   },
   {
     name: 'Wolf',
-    skill: { name: 'Howl', mult: 1.1, cooldown: 4 },
+    skill: { name: 'Howl', type: 'physical', mult: 1.1, cooldown: 4 },
     passive: { type: 'berserk', value: 20, description: 'Increases attack by 20% when HP is low.' },
     hpMult: 1.0, atkMult: 1.3, defMult: 0.6
   },
   {
     name: 'Spider',
-    skill: { name: 'Web Shot', mult: 1.0, cooldown: 3, effect: { type: 'stun', duration: 1 } },
+    skill: { name: 'Web Shot', type: 'physical', mult: 1.0, cooldown: 3, effect: { type: 'stun', duration: 1 } },
     hpMult: 0.7, atkMult: 1.0, defMult: 0.5
   },
   {
@@ -45,7 +45,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
   },
   {
     name: 'Orc',
-    skill: { name: 'Brutal Smash', mult: 1.8, cooldown: 4 },
+    skill: { name: 'Brutal Smash', type: 'physical', mult: 1.8, cooldown: 4 },
     hpMult: 1.3, atkMult: 1.4, defMult: 0.9
   },
   {

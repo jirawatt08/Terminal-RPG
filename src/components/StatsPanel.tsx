@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { useGame } from '../context/GameContext';
+import { usePlayer } from '../context/PlayerContext';
+import { useCombatContext } from '../context/CombatContext';
 import { PlayerClass } from '../types';
 import { ProgressBar } from './ProgressBar';
 import { Heart, Zap, Sword, Shield, Coins, ArrowUpCircle, Info, Activity, ShieldCheck, Trophy } from 'lucide-react';
-import { SET_BONUSES } from '../constants';
+import { SET_BONUSES, CLASS_SKILLS } from '../constants';
 
 type StatsTab = 'ATTRIBUTES' | 'COMBAT' | 'PASSIVES' | 'REBORN';
 
 export const StatsPanel: React.FC = React.memo(() => {
-  const { player, stats, actions, setPlayer } = useGame();
+  const { player, stats, actions, setPlayer } = usePlayer();
+  const { gameState, refs } = useCombatContext();
   const [activeTab, setActiveTab] = useState<StatsTab>('ATTRIBUTES');
 
   const classes: PlayerClass[] = ['Warrior', 'Rogue', 'Mage'];
@@ -22,7 +24,7 @@ export const StatsPanel: React.FC = React.memo(() => {
   const toggleBarMode = () => {
     const modes: ('bar' | 'number' | 'percent')[] = ['bar', 'number', 'percent'];
     const nextMode = modes[(modes.indexOf(barMode) + 1) % modes.length];
-    setPlayer(p => ({ ...p, settings: { ...p.settings, barMode: nextMode } }));
+    setPlayer((p: any) => ({ ...p, settings: { ...p.settings, barMode: nextMode } }));
   };
 
   return (
@@ -87,6 +89,58 @@ export const StatsPanel: React.FC = React.memo(() => {
             height="h-1.5"
           />
         </div>
+
+        {/* Skill Bar restoration */}
+        {CLASS_SKILLS[player.playerClass as keyof typeof CLASS_SKILLS] && (
+            <div className="mt-4 pt-3 border-t border-[#00ff00]/10">
+                <div className="flex justify-between items-center text-[9px] text-purple-400 font-bold uppercase mb-2">
+                    <span>Active Skills</span>
+                    <label className="flex items-center gap-1 cursor-pointer text-gray-500 hover:text-[#00ff00]">
+                        <input
+                            type="checkbox"
+                            checked={player.autoSkill}
+                            onChange={(e) => setPlayer((p: any) => ({ ...p, autoSkill: e.target.checked }))}
+                            className="accent-purple-500 h-2 w-2"
+                        />
+                        AUTO
+                    </label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {(CLASS_SKILLS[player.playerClass as keyof typeof CLASS_SKILLS] || [])
+                        .filter(skill => player.level >= skill.unlockLevel)
+                        .map(skill => {
+                            const cd = player.skillCooldown;
+                            const isMagic = skill.type === 'magic';
+                            const scalingStat = isMagic ? 'INT' : 'STR';
+                            const actualCooldown = Math.max(1, Math.floor(skill.cooldown * (1 - (stats.skillHaste || 0) / 100)));
+
+                            return (
+                                <button
+                                    key={skill.name}
+                                    onClick={() => { refs.queuedSkillRef.current = true; }}
+                                    disabled={player.mp < skill.cost || gameState === 'DEAD' || gameState === 'IDLE' || cd > 0}
+                                    className="flex-1 min-w-[100px] flex flex-col p-1.5 border border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 disabled:opacity-30 disabled:grayscale transition-all text-left relative overflow-hidden rounded-sm"
+                                >
+                                    <div className="flex justify-between items-start mb-0.5">
+                                        <span className="text-[9px] font-bold text-purple-400 uppercase leading-none truncate">{skill.name}</span>
+                                        <span className="text-[8px] font-mono text-purple-300">-{skill.cost}MP</span>
+                                    </div>
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-[7px] text-purple-300/50 uppercase leading-none">{skill.mult}x {scalingStat}</span>
+                                        {cd > 0 && <span className="text-[8px] text-red-400 font-bold leading-none animate-pulse">{cd}s</span>}
+                                    </div>
+                                    {cd > 0 && (
+                                        <div 
+                                            className="absolute bottom-0 left-0 h-0.5 bg-purple-500/50 transition-all duration-1000" 
+                                            style={{ width: `${(cd / actualCooldown) * 100}%` }}
+                                        />
+                                    )}
+                                </button>
+                            );
+                        })}
+                </div>
+            </div>
+        )}
 
         <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-[#00ff00]/10 text-center">
           <div>

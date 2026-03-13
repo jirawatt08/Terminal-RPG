@@ -11,10 +11,9 @@ import { LoginModal } from './components/LoginModal';
 
 export default function App() {
   const {
-    player, setPlayer,
-    gameState, currentEnemies,
-    logs, stats, actions, refs,
-    showLoginModal, isLoggingIn, lastSaveTime, addLog
+    gameState,
+    stats, actions,
+    showLoginModal, isLoggingIn
   } = useGame();
 
   return (
@@ -36,15 +35,7 @@ export default function App() {
         {gameState === 'VILLAGE' ? (
           <VillagePanel />
         ) : gameState === 'SETTINGS' ? (
-          <SettingsPanel
-            player={player}
-            setPlayer={setPlayer}
-            closeSettings={actions.stopAction}
-            manualSave={actions.manualSave}
-            saveToLocal={actions.saveToLocal}
-            exportSave={actions.exportSave}
-            importSave={actions.importSave}
-          />
+          <SettingsPanel />
         ) : gameState === 'DASHBOARD' || gameState === 'PATCHES' ? (
           <DashboardPanel
             onClose={actions.stopAction}
@@ -52,27 +43,11 @@ export default function App() {
             initialView={gameState === 'PATCHES' ? 'PATCHES' : 'GLOBAL'}
           />
         ) : (
-          <ConsolePanel
-            logs={logs}
-            gameState={gameState}
-            currentEnemies={currentEnemies}
-            logsEndRef={refs.logsEndRef}
-            player={player}
-            addLog={addLog}
-          />
+          <ConsolePanel />
         )}
       </div>
 
-      <ControlsPanel
-        player={player}
-        setPlayer={setPlayer}
-        gameState={gameState}
-        stats={stats}
-        actions={actions}
-        queuedSkillRef={refs.queuedSkillRef}
-        isLoggingIn={isLoggingIn}
-        lastSaveTime={lastSaveTime}
-      />
+      <ControlsPanel />
     </div>
   );
 }

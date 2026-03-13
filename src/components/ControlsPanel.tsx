@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { useGame } from '../context/GameContext';
+import { usePlayer } from '../context/PlayerContext';
+import { useCombatContext } from '../context/CombatContext';
 import { Zap, Play, Skull, Square, ChevronRight, Home, Info, Settings, Trophy, LogIn, LogOut, User } from 'lucide-react';
-import { CLASS_SKILLS } from '../constants';
 
 export const ControlsPanel: React.FC = () => {
     const { 
-        player, setPlayer, gameState, stats, actions, 
-        refs, isLoggingIn, lastSaveTime 
-    } = useGame();
+        player, setPlayer, stats, actions: playerActions, 
+        isLoggingIn, lastSaveTime 
+    } = usePlayer();
+    const { 
+        gameState, actions: combatActions, refs
+    } = useCombatContext();
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     const healCost = Math.floor(50 + (player.stage * 10) + (stats.maxHp * 0.05) + (stats.maxMp * 0.05));
@@ -41,7 +44,7 @@ export const ControlsPanel: React.FC = () => {
                                         </div>
                                         <button
                                             onClick={() => {
-                                                actions.logout();
+                                                playerActions.logout();
                                                 setShowUserMenu(false);
                                             }}
                                             className="w-full text-left px-2 py-2 hover:bg-red-500/10 text-red-400 flex items-center gap-2 transition-colors"
@@ -50,8 +53,8 @@ export const ControlsPanel: React.FC = () => {
                                         </button>
                                         <button
                                             onClick={() => {
-                                                actions.logout();
-                                                actions.setShowLoginModal(true);
+                                                playerActions.logout();
+                                                playerActions.setShowLoginModal(true);
                                                 setShowUserMenu(false);
                                             }}
                                             className="w-full text-left px-2 py-2 hover:bg-[#00ff00]/10 text-[#00ff00] flex items-center gap-2 transition-colors"
@@ -64,7 +67,7 @@ export const ControlsPanel: React.FC = () => {
                         </div>
                     ) : (
                         <button
-                            onClick={() => actions.setShowLoginModal(true)}
+                            onClick={() => playerActions.setShowLoginModal(true)}
                             className="text-gray-500 hover:text-[#00ff00] flex items-center gap-1 text-[10px] transition-colors"
                         >
                             <LogIn size={14} /> LOGIN
@@ -74,7 +77,7 @@ export const ControlsPanel: React.FC = () => {
 
                 <div className="space-y-3">
                     <button
-                        onClick={actions.startFarming}
+                        onClick={combatActions.startFarming}
                         disabled={gameState === 'FARMING' || gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT'}
                         className="w-full flex items-center justify-between p-3 border border-[#00ff00]/50 hover:bg-[#00ff00]/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                     >
@@ -83,7 +86,7 @@ export const ControlsPanel: React.FC = () => {
                     </button>
 
                     <button
-                        onClick={actions.startBossFight}
+                        onClick={combatActions.startBossFight}
                         disabled={gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'DEAD'}
                         className="w-full flex items-center justify-between p-3 border border-orange-500/50 text-orange-400 hover:bg-orange-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                     >
@@ -100,7 +103,7 @@ export const ControlsPanel: React.FC = () => {
                             <input
                                 type="checkbox"
                                 checked={player.autoBoss}
-                                onChange={(e) => setPlayer(p => ({ ...p, autoBoss: e.target.checked }))}
+                                onChange={(e) => setPlayer((p: any) => ({ ...p, autoBoss: e.target.checked }))}
                                 className="accent-orange-500"
                             />
                             ENABLE
@@ -108,7 +111,7 @@ export const ControlsPanel: React.FC = () => {
                     </div>
 
                     <button
-                        onClick={actions.startNextBossFight}
+                        onClick={combatActions.startNextBossFight}
                         disabled={gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'DEAD' || player.level < player.stage * 5}
                         className="w-full flex items-center justify-between p-3 border border-red-500/50 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                     >
@@ -121,7 +124,7 @@ export const ControlsPanel: React.FC = () => {
 
                     <div className="flex gap-2">
                         <button
-                            onClick={actions.stopAction}
+                            onClick={combatActions.stopAction}
                             disabled={gameState === 'IDLE' || gameState === 'DEAD'}
                             className="flex-1 flex items-center justify-between p-3 border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                         >
@@ -130,7 +133,7 @@ export const ControlsPanel: React.FC = () => {
                         </button>
 
                         <button
-                            onClick={actions.runAway}
+                            onClick={combatActions.runAway}
                             disabled={gameState === 'IDLE' || gameState === 'DEAD' || gameState === 'VILLAGE'}
                             className="flex-1 flex items-center justify-between p-3 border border-gray-500/50 text-gray-400 hover:bg-gray-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                         >
@@ -140,7 +143,7 @@ export const ControlsPanel: React.FC = () => {
                     </div>
 
                     <button
-                        onClick={actions.enterVillage}
+                        onClick={combatActions.enterVillage}
                         disabled={gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'FARMING'}
                         className="w-full flex items-center justify-between p-3 border border-blue-400/50 text-blue-400 hover:bg-blue-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                     >
@@ -149,7 +152,7 @@ export const ControlsPanel: React.FC = () => {
                     </button>
 
                     <button
-                        onClick={actions.openSettings}
+                        onClick={combatActions.openSettings}
                         disabled={gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'FARMING'}
                         className="w-full flex items-center justify-between p-3 border border-gray-400/50 text-gray-400 hover:bg-gray-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                     >
@@ -158,7 +161,7 @@ export const ControlsPanel: React.FC = () => {
                     </button>
 
                     <button
-                        onClick={actions.openDashboard}
+                        onClick={combatActions.openDashboard}
                         disabled={gameState === 'DEAD' || gameState === 'BOSS_FIGHT' || gameState === 'NEXT_BOSS_FIGHT' || gameState === 'FARMING'}
                         className="w-full flex items-center justify-between p-3 border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                     >
@@ -168,7 +171,7 @@ export const ControlsPanel: React.FC = () => {
 
                     <div className="pt-4 border-t border-gray-800 space-y-3">
                         <button
-                            onClick={actions.heal}
+                            onClick={combatActions.heal}
                             disabled={player.gold < healCost || (player.hp >= stats.maxHp && player.mp >= stats.maxMp) || gameState === 'DEAD'}
                             className="w-full flex items-center justify-between p-3 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer"
                         >
@@ -184,7 +187,7 @@ export const ControlsPanel: React.FC = () => {
                                         <input
                                             type="checkbox"
                                             checked={player.autoHealEnabled}
-                                            onChange={(e) => setPlayer(p => ({ ...p, autoHealEnabled: e.target.checked }))}
+                                            onChange={(e) => setPlayer((p: any) => ({ ...p, autoHealEnabled: e.target.checked }))}
                                             className="accent-green-500"
                                         />
                                         ENB
@@ -202,7 +205,7 @@ export const ControlsPanel: React.FC = () => {
                                         step="5"
                                         disabled={!player.autoHealEnabled}
                                         value={player.autoHealThreshold}
-                                        onChange={(e) => setPlayer(p => ({ ...p, autoHealThreshold: parseInt(e.target.value) }))}
+                                        onChange={(e) => setPlayer((p: any) => ({ ...p, autoHealThreshold: parseInt(e.target.value) }))}
                                         className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-500 disabled:opacity-30"
                                     />
                                 </div>
@@ -210,73 +213,13 @@ export const ControlsPanel: React.FC = () => {
                         )}
 
                         <button
-                            onClick={actions.showHelp}
+                            onClick={combatActions.showHelp}
                             className="w-full flex items-center justify-between p-3 border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 transition-colors text-left cursor-pointer"
                         >
                             <span>./help</span>
                             <Info size={16} />
                         </button>
                     </div>
-
-                    {CLASS_SKILLS[player.playerClass] && (
-                        <div className="pt-4 border-t border-gray-800 space-y-2">
-                            <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
-                                <span>CLASS SKILL</span>
-                                <label className="flex items-center gap-1 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={player.autoSkill}
-                                        onChange={(e) => setPlayer(p => ({ ...p, autoSkill: e.target.checked }))}
-                                        className="accent-[#00ff00]"
-                                    />
-                                    Auto
-                                </label>
-                            </div>
-                            {(() => {
-                                const skills = CLASS_SKILLS[player.playerClass as keyof typeof CLASS_SKILLS] || [];
-                                const skill = [...skills].reverse().find(s => player.level >= s.unlockLevel);
-                                if (!skill) return null;
-                                const isMagic = skill.type === 'magic';
-                                const scalingStat = isMagic ? 'INT' : 'STR';
-                                const cd = player.skillCooldown;
-
-                                return (
-                                    <div className="flex flex-col gap-1">
-                                        <button
-                                            onClick={() => { refs.queuedSkillRef.current = true; }}
-                                            disabled={player.mp < skill.cost || gameState === 'DEAD' || gameState === 'IDLE' || cd > 0}
-                                            className="w-full flex items-center justify-between p-3 border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left cursor-pointer relative overflow-hidden"
-                                        >
-                                            <div className="flex flex-col">
-                                                <span className="font-bold uppercase tracking-widest">{skill.name}</span>
-                                                <div className="flex gap-2 items-center">
-                                                    <span className="text-[9px] opacity-60">
-                                                        {skill.mult}x {scalingStat} | {skill.aoe ? 'AOE' : 'SINGLE'}
-                                                    </span>
-                                                    {skill.statusEffect && (
-                                                        <span className="text-[8px] text-cyan-400 font-bold uppercase">
-                                                            +{skill.statusEffect.chance}% {skill.statusEffect.type}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-end shrink-0">
-                                                <span className="text-xs font-mono">-{skill.cost} MP</span>
-                                                {cd > 0 && <span className="text-[10px] text-red-400 font-bold animate-pulse">RELOAD: {cd}s</span>}
-                                            </div>
-                                            {/* CD Progress Overlay */}
-                                            {cd > 0 && (
-                                                <div 
-                                                    className="absolute bottom-0 left-0 h-0.5 bg-purple-500/50 transition-all duration-1000" 
-                                                    style={{ width: `${(cd / Math.max(1, Math.floor(skill.cooldown * (1 - (stats.skillHaste || 0) / 100)))) * 100}%` }}
-                                                />
-                                            )}
-                                        </button>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

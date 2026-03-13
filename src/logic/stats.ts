@@ -30,6 +30,7 @@ export interface CalculatedStats {
     critChance: number;
     finalCritDmg: number;
     dodgeChance: number;
+    reduction: number;
     lifesteal: number;
     bonusManaRegen: number;
     setBonusGoldPct: number;
@@ -198,7 +199,7 @@ export const calculateStats = (player: Player): CalculatedStats => {
         milestoneBonuses,
         skillHaste,
         maxHp, maxMp, totalAttack, totalDefense, totalMagicAttack, totalLuck, totalStatusChance,
-        critChance, finalCritDmg, dodgeChance, lifesteal,
+        critChance, finalCritDmg, dodgeChance, reduction, lifesteal,
         bonusManaRegen,
         setBonusGoldPct, setBonusExpPct,
         setReflection,

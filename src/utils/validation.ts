@@ -1,4 +1,5 @@
-import { Player, INITIAL_PLAYER_STATE } from '../hooks/usePlayerState';
+import { Player } from '../types';
+import { INITIAL_PLAYER_STATE } from '../hooks/usePlayerState';
 import { SafeMath } from './safeMath';
 
 /**

@@ -1,20 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Clock, User, ArrowLeft, Skull, Target, Zap, FileText } from 'lucide-react';
+import { usePlayer } from '../context/PlayerContext';
+import { useCombatContext } from '../context/CombatContext';
 import { getGlobalRecords, isFirebaseConfigured } from '../services/firebase';
 import { RebornRecord } from '../types';
 import { PATCH_NOTES } from '../constants/patchNotes';
 
-interface DashboardPanelProps {
-    onClose: () => void;
-    localRecords: RebornRecord[];
-    initialView?: 'GLOBAL' | 'LOCAL' | 'PATCHES';
-}
-
-export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose, localRecords, initialView }) => {
+export const DashboardPanel: React.FC = () => {
+    const { player, stats } = usePlayer();
+    const { gameState, actions: combatActions } = useCombatContext();
+    
     const [records, setRecords] = useState<RebornRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [view, setView] = useState<'GLOBAL' | 'LOCAL' | 'PATCHES'>(initialView || 'GLOBAL');
+    const [view, setView] = useState<'GLOBAL' | 'LOCAL' | 'PATCHES'>(gameState === 'PATCHES' ? 'PATCHES' : 'GLOBAL');
 
     const fetchRecords = async () => {
         setLoading(true);
@@ -57,7 +56,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose, localRe
                     )}
                 </h2>
                 <button
-                    onClick={onClose}
+                    onClick={combatActions.stopAction}
                     className="text-gray-500 hover:text-[#00ff00] flex items-center gap-1 text-xs"
                 >
                     <ArrowLeft size={14} /> BACK
@@ -134,13 +133,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ onClose, localRe
                         </div>
                     )
                 ) : (
-                    localRecords.length === 0 ? (
+                    stats.rebornHistory.length === 0 ? (
                         <div className="text-center text-gray-600 mt-10">
                             NO LOCAL HISTORY FOUND. EXECUTE REBORN.EXE TO START.
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {[...localRecords].reverse().map((record, index) => (
+                            {[...stats.rebornHistory].reverse().map((record, index) => (
                                 <DashboardRecord key={record.id} record={record} index={index} isLocal />
                             ))}
                         </div>

@@ -1,3 +1,10 @@
+// Branded Types for Terminal-RPG (TS 5.8)
+export type Positive<T extends number> = T & { readonly __brand: 'Positive' };
+export type Integer<T extends number> = T & { readonly __brand: 'Integer' };
+export type Gold = Positive<Integer<number>>;
+export type HP = Positive<Integer<number>>;
+export type XP = Positive<Integer<number>>;
+
 export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic' | 'Divine';
 
 export type ItemType = 'Weapon' | 'Armor' | 'Accessory';
@@ -168,6 +175,7 @@ export type GameEvent =
 
 export interface EnemySkill {
   name: string;
+  type: 'physical' | 'magic';
   mult: number;
   cooldown: number;
   currentCooldown: number;
