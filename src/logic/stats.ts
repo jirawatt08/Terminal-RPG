@@ -110,11 +110,11 @@ export const calculateStats = (player: Player): CalculatedStats => {
     const lukMult = 1 + (clsMod.luk ? clsMod.luk - 1 : 0) + setMods.reduce((acc, m) => acc + (m.luk || 0), 0);
 
     // 3. Calculate Base + Equipment Attributes
-    const totalStr = Math.floor((player.stats.str + getEquipmentStatBonus(player, 'str')) * strMult);
-    const totalAgi = Math.floor((player.stats.agi + getEquipmentStatBonus(player, 'agi')) * agiMult);
-    const totalVit = Math.floor((player.stats.vit + getEquipmentStatBonus(player, 'vit')) * vitMult);
-    const totalInt = Math.floor((player.stats.int + getEquipmentStatBonus(player, 'int')) * intMult);
-    const totalLuk = Math.floor((player.stats.luk + getEquipmentStatBonus(player, 'luk')) * lukMult);
+    const totalStr = Math.floor(((player.stats?.str || 0) + getEquipmentStatBonus(player, 'str')) * strMult);
+    const totalAgi = Math.floor(((player.stats?.agi || 0) + getEquipmentStatBonus(player, 'agi')) * agiMult);
+    const totalVit = Math.floor(((player.stats?.vit || 0) + getEquipmentStatBonus(player, 'vit')) * vitMult);
+    const totalInt = Math.floor(((player.stats?.int || 0) + getEquipmentStatBonus(player, 'int')) * intMult);
+    const totalLuk = Math.floor(((player.stats?.luk || 0) + getEquipmentStatBonus(player, 'luk')) * lukMult);
 
     // Derived milestones
     const strMilestones = Math.floor(totalStr / 10);
@@ -152,17 +152,17 @@ export const calculateStats = (player: Player): CalculatedStats => {
     const rebornHpBonus = (player.rebornUpgrades?.hpBonus || 0) / 100;
     const rebornAtkBonus = (player.rebornUpgrades?.atkBonus || 0) / 100;
 
-    const maxHp = Math.floor((player.maxHp + (totalVit * 40) + (armorVal * 10)) * (1 + bonusHpPct + setBonusHpPct + rebornHpBonus));
+    const maxHp = Math.floor(((player.maxHp || 100) + (totalVit * 40) + (armorVal * 10)) * (1 + bonusHpPct + setBonusHpPct + rebornHpBonus));
     
     const classBonusMp = (player.playerClass === 'Mage' ? 200 : player.playerClass === 'Archmage' ? 500 : player.playerClass === 'Necromancer' ? 300 : player.playerClass === 'Paladin' ? 150 : 0);
-    const maxMp = Math.floor((player.maxMp + (totalInt * 12) + classBonusMp) * (1 + setBonusMpPct));
+    const maxMp = Math.floor(((player.maxMp || 50) + (totalInt * 12) + classBonusMp) * (1 + setBonusMpPct));
 
     const potionExpBonus = player.potions?.filter(p => p.type === 'exp').reduce((acc, p) => acc + p.value, 0) || 0;
     const potionGoldBonus = player.potions?.filter(p => p.type === 'coin').reduce((acc, p) => acc + p.value, 0) || 0;
     const potionLuckBonus = player.potions?.filter(p => p.type === 'luck').reduce((acc, p) => acc + p.value, 0) || 0;
 
-    const totalAttack = Math.floor((player.baseAttack + (totalStr * 2) + weaponVal) * (1 + bonusAtkPct + setBonusAtkPct + rebornAtkBonus));
-    const totalDefense = Math.floor((player.baseDefense + (totalVit * 1.2) + armorVal) * (1 + bonusDefPct + setBonusDefPct));
+    const totalAttack = Math.floor(((player.baseAttack || 10) + (totalStr * 2) + weaponVal) * (1 + bonusAtkPct + setBonusAtkPct + rebornAtkBonus));
+    const totalDefense = Math.floor(((player.baseDefense || 5) + (totalVit * 1.2) + armorVal) * (1 + bonusDefPct + setBonusDefPct));
     const totalMagicAttack = Math.floor((totalInt * 3 + weaponVal) * (1 + bonusMagicDmgPct + setBonusMagicPct));
     
     const baseLuck = totalLuk + getEffectTotal(player, 'luck');

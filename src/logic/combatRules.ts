@@ -61,31 +61,43 @@ export const calculateAttack = (
     results.isCrit = Math.random() * 100 < (stats.critChance || 0) || (skill?.guaranteedCrit ?? false);
     
     let rawDamage = 0;
+    const totalAttack = stats.totalAttack || 0;
+    const totalMagicAttack = stats.totalMagicAttack || totalAttack; // Fallback to physical if magic missing
+    const totalStr = stats.totalStr || 0;
+    const totalInt = stats.totalInt || 0;
+
     if (skill) {
         if (skill.type === 'physical') {
-            rawDamage = Math.floor(stats.totalAttack! * skill.mult * (1 + (stats.totalStr || 0) / 100));
+            // Only apply attribute scaling if it exists (player has str, enemies usually don't)
+            const scaling = options.isPlayerAttacking ? (1 + totalStr / 100) : 1;
+            rawDamage = Math.floor(totalAttack * skill.mult * scaling);
         } else {
-            rawDamage = Math.floor(stats.totalMagicAttack! * skill.mult * (1 + (stats.totalInt || 0) / 100));
+            // Only apply attribute scaling if it exists
+            const scaling = options.isPlayerAttacking ? (1 + totalInt / 100) : 1;
+            rawDamage = Math.floor(totalMagicAttack * skill.mult * scaling);
         }
     } else {
-        rawDamage = stats.totalAttack! + Math.floor(Math.random() * 5);
+        rawDamage = totalAttack + Math.floor(Math.random() * 5);
     }
 
     if (results.isCrit) {
         rawDamage = Math.floor(rawDamage * (stats.finalCritDmg || 1.5));
     }
 
+    // Ensure rawDamage is never NaN
+    if (isNaN(rawDamage)) rawDamage = totalAttack || 1;
+
     // 3. Apply Defense & Mitigation
     // Effective Defense formula
     const armorPen = options.isPlayerAttacking ? 0 : (defender as Enemy).armorPenetration || 0;
-    const effectiveDef = defender.defense * (1 - armorPen / 100);
+    const effectiveDef = (defender.defense || 0) * (1 - armorPen / 100);
     const damageFactor = 100 / (100 + effectiveDef);
     
     let finalDmg = Math.max(1, Math.floor(rawDamage * damageFactor));
 
     // Passive Shielding
-    const passive = (defender as any).passive; // Simplified for this logic
-    if (passive?.type === 'shield') {
+    const passive = (defender as any).passive; 
+    if (passive?.type === 'shield' && passive.value) {
         finalDmg = Math.floor(finalDmg * (1 - passive.value / 100));
         results.isShielded = true;
     }
@@ -95,22 +107,25 @@ export const calculateAttack = (
         finalDmg = Math.floor(finalDmg * (1 - stats.reduction! / 100));
     }
 
-    results.damage = finalDmg;
+    results.damage = isNaN(finalDmg) ? 1 : finalDmg;
 
     // 4. Reflection / Thorns
-    if (options.isPlayerAttacking && (passive?.type === 'thorns' || passive?.type === 'reflect')) {
-        results.reflectedDamage = Math.floor(finalDmg * (passive.value / 100));
+    if (options.isPlayerAttacking && (passive?.type === 'thorns' || passive?.type === 'reflect') && passive.value) {
+        results.reflectedDamage = Math.floor(results.damage * (passive.value / 100));
     }
 
     // 5. Status Effects from Skills
     if (skill?.statusEffect && Math.random() * 100 < skill.statusEffect.chance) {
-        if (Math.random() * 100 < defender.statusResistance) {
+        // Fallback for statusResistance if missing
+        const res = defender.statusResistance || 0;
+        if (Math.random() * 100 < res) {
             results.logs.push({ text: `> ${defender.name} resisted the ${skill.name} effect!`, type: 'info' });
         } else {
+            const statusValue = skill.statusEffect.value || (skill.type === 'magic' ? Math.floor(totalMagicAttack * 0.5) : Math.floor(totalAttack * 0.5));
             results.statusApplied = {
                 type: skill.statusEffect.type,
                 duration: skill.statusEffect.duration,
-                value: skill.type === 'magic' ? Math.floor(stats.totalMagicAttack! * 0.5) : Math.floor(stats.totalAttack! * 0.5)
+                value: isNaN(statusValue) ? 5 : statusValue
             };
         }
     }
