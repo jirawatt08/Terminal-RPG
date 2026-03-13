@@ -184,6 +184,7 @@ export const generateLoot = (playerLevel: number, stage: number, isBoss: boolean
   return {
     id: generateId(),
     name: finalName,
+    category: 'Equippable',
     type,
     rarity,
     value,

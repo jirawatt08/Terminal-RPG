@@ -1,11 +1,53 @@
-import { Player, Item, PlayerStats } from '../types';
+import { Player, Item, PlayerStats, EquippableItem } from '../types';
 import { CLASS_MODIFIERS, SET_BONUSES_DATA } from '../constants';
+
+export interface CalculatedStats {
+    totalStr: number;
+    totalAgi: number;
+    totalVit: number;
+    totalInt: number;
+    totalLuk: number;
+    strMilestones: number;
+    agiMilestones: number;
+    vitMilestones: number;
+    intMilestones: number;
+    lukMilestones: number;
+    milestoneBonuses: {
+        str: string | null;
+        agi: string | null;
+        vit: string | null;
+        int: string | null;
+        luk: string | null;
+    };
+    skillHaste: number;
+    maxHp: number;
+    maxMp: number;
+    totalAttack: number;
+    totalDefense: number;
+    totalMagicAttack: number;
+    totalLuck: number;
+    totalStatusChance: number;
+    critChance: number;
+    finalCritDmg: number;
+    dodgeChance: number;
+    lifesteal: number;
+    bonusManaRegen: number;
+    setBonusGoldPct: number;
+    setBonusExpPct: number;
+    setReflection: number;
+    potionExpBonus: number;
+    potionGoldBonus: number;
+    potionLuckBonus: number;
+    nextRebornPoints: number;
+    activeSets: string[];
+    hasSet: (name: string) => boolean;
+}
 
 export const getEquipmentStatBonus = (player: Player, stat: keyof PlayerStats) => {
     let total = 0;
     Object.values(player.equipment).forEach(item => {
-        const i = item as Item | null;
-        if (i?.stats && i.stats[stat]) {
+        const i = item as EquippableItem | null;
+        if (i?.category === 'Equippable' && i.stats && i.stats[stat]) {
             // Apply upgrade scaling: +20% per level
             const multiplier = 1 + (i.upgradeLevel || 0) * 0.2;
             total += Math.floor(i.stats[stat]! * multiplier);
@@ -15,8 +57,9 @@ export const getEquipmentStatBonus = (player: Player, stat: keyof PlayerStats) =
 };
 
 export const getEquipmentValue = (item: Item | null) => {
-    if (!item) return 0;
-    return Math.floor(item.value * (1 + (item.upgradeLevel || 0) * 0.2));
+    if (!item || item.category !== 'Equippable') return 0;
+    const equippable = item as EquippableItem;
+    return Math.floor(equippable.value * (1 + (equippable.upgradeLevel || 0) * 0.2));
 };
 
 export const getSetBonus = (player: Player) => {
@@ -40,7 +83,7 @@ export const getEffectTotal = (player: Player, type: 'lifesteal' | 'crit' | 'dod
     return total;
 };
 
-export const calculateStats = (player: Player) => {
+export const calculateStats = (player: Player): CalculatedStats => {
     // 1. Pre-calculate equipment values
     const weaponVal = getEquipmentValue(player.equipment.weapon);
     const armorVal = getEquipmentValue(player.equipment.armor);
@@ -129,9 +172,6 @@ export const calculateStats = (player: Player) => {
 
     let critChance = getEffectTotal(player, 'crit') + bonusCritChance + setBonusCrit;
     let finalCritDmg = bonusCritDmg + getMod('critDmg'); 
-    // Duelist set has it in setMods which is handled by getMod('critDmg') now.
-    // Wait, the previous logic was + (hasSet('Duelist') ? 0.4 : 0). 
-    // My getMod handles it correctly.
 
     if (critChance > 100) {
         finalCritDmg += (critChance - 100) / 100;

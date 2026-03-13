@@ -1,15 +1,16 @@
 import React from 'react';
-import { Player, GameState, Enemy, Quest } from '../types';
+import { Player, GameState, Enemy, Quest, LogType, PotionType } from '../types';
 import { generateId } from '../utils';
 import { useUpdatePlayer } from './useUpdatePlayer';
+import { CalculatedStats } from '../logic/stats';
 
 interface UseVillageActionsProps {
     player: Player;
     setPlayer: React.Dispatch<React.SetStateAction<Player>>;
     gameState: GameState;
     setGameState: (s: GameState) => void;
-    addLog: (msg: string, type?: any) => void;
-    stats: any;
+    addLog: (msg: string, type?: LogType) => void;
+    stats: CalculatedStats;
     setCurrentEnemies: (e: Enemy[]) => void;
 }
 
@@ -63,7 +64,7 @@ export function useVillageActions({
         }
     };
 
-    const buyPotion = (type: 'exp' | 'coin' | 'luck' | 'health') => {
+    const buyPotion = (type: PotionType) => {
         const cost = 200 + (player.stage * 100);
         if (player.gold < cost) {
             addLog(`Insufficient funds for potion. Need ${cost}G.`, 'error');
@@ -97,7 +98,7 @@ export function useVillageActions({
         addLog(`Acquired ${type.toUpperCase()} Potion! Stacks: ${currentStacks + 1}/${maxPotions}`, 'success');
     };
 
-    const buyMaxPotion = (type: 'exp' | 'coin' | 'luck' | 'health') => {
+    const buyMaxPotion = (type: PotionType) => {
         const costPer = 200 + (player.stage * 100);
         const maxStacks = 5 + (player.potionMaxBuyUpgrade * 5);
         const currentStacks = player.potions.find(p => p.type === type)?.duration / 10 || 0;

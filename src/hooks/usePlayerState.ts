@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Player, PlayerClass, GameState, Enemy } from '../types';
+import { Player, PlayerClass, GameState, Enemy, LogType } from '../types';
 import { generateId } from '../utils';
 import { saveRebornRecord, savePlayerData } from '../services/firebase';
 import { useUpdatePlayer } from './useUpdatePlayer';
@@ -35,7 +35,7 @@ export const INITIAL_PLAYER_STATE: Player = {
     bossesKilled: 0
 };
 
-export function usePlayerState(addLog: (msg: string, type?: any) => void) {
+export function usePlayerState(addLog: (msg: string, type?: LogType) => void) {
     const [player, setPlayer] = useState<Player>(INITIAL_PLAYER_STATE);
     const { updatePlayer } = useUpdatePlayer(setPlayer);
 

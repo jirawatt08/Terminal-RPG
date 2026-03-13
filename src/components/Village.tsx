@@ -1,6 +1,6 @@
 import React from 'react';
-import { Home, Hammer, Coins, Star, ArrowUpCircle } from 'lucide-react';
-import { Player, Item } from '../types';
+import { Home, Hammer, Coins } from 'lucide-react';
+import { Player, Item, EquippableItem } from '../types';
 import { RARITY_COLORS } from '../constants';
 
 interface VillageProps {
@@ -63,22 +63,25 @@ export const Village: React.FC<VillageProps> = ({
               <div>
                 <h3 className="text-sm text-gray-500 mb-3 font-bold">EQUIPPED ITEMS</h3>
                 <div className="space-y-2">
-                  {Object.values(player.equipment).map(item => {
-                    const i = item as Item | null;
-                    return i && (
+                  {Object.values(player.equipment).map(itemVal => {
+                    const item = itemVal as Item | null;
+                    if (!item || item.category !== 'Equippable') return null;
+                    const i = item as EquippableItem;
+                    const upgradeCost = Math.floor(i.value * 0.5 * Math.pow(1.5, i.upgradeLevel || 0));
+                    return (
                     <div key={i.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center">
                       <div>
-                        <div style={{ color: RARITY_COLORS[i.rarity] }} className="text-sm font-bold">
+                        <div style={{ color: RARITY_COLORS[i.rarity] }} className="text-sm font-bold uppercase">
                           {i.name} {i.upgradeLevel && i.upgradeLevel > 0 ? `+${i.upgradeLevel}` : ''}
                         </div>
                         <div className="text-xs text-gray-500">Value: {getEquipmentValue(i)}</div>
                       </div>
                       <button 
                         onClick={() => upgradeItem(i, true)}
-                        disabled={player.gold < Math.floor(i.value * 0.5 * Math.pow(1.5, i.upgradeLevel || 0))}
-                        className="px-3 py-1 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-xs"
+                        disabled={player.gold < upgradeCost}
+                        className="px-3 py-1 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-xs font-bold uppercase"
                       >
-                        Upgrade ({Math.floor(i.value * 0.5 * Math.pow(1.5, i.upgradeLevel || 0))}G)
+                        Upgrade ({upgradeCost}G)
                       </button>
                     </div>
                   )})}
@@ -91,25 +94,29 @@ export const Village: React.FC<VillageProps> = ({
               <div>
                 <h3 className="text-sm text-gray-500 mb-3 font-bold">INVENTORY ITEMS</h3>
                 <div className="space-y-2">
-                  {player.inventory.map(item => (
-                    <div key={item.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center">
+                  {player.inventory.map(item => {
+                    if (item.category !== 'Equippable') return null;
+                    const i = item as EquippableItem;
+                    const upgradeCost = Math.floor(i.value * 0.5 * Math.pow(1.5, i.upgradeLevel || 0));
+                    return (
+                    <div key={i.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center">
                       <div>
-                        <div style={{ color: RARITY_COLORS[item.rarity] }} className="text-sm font-bold">
-                          {item.name} {item.upgradeLevel > 0 && `+${item.upgradeLevel}`}
+                        <div style={{ color: RARITY_COLORS[i.rarity] }} className="text-sm font-bold uppercase">
+                          {i.name} {i.upgradeLevel && i.upgradeLevel > 0 ? `+${i.upgradeLevel}` : ''}
                         </div>
-                        <div className="text-xs text-gray-500">Value: {getEquipmentValue(item)}</div>
+                        <div className="text-xs text-gray-500">Value: {getEquipmentValue(i)}</div>
                       </div>
                       <button 
-                        onClick={() => upgradeItem(item, false)}
-                        disabled={player.gold < Math.floor(item.value * 0.5 * Math.pow(1.5, item.upgradeLevel || 0))}
-                        className="px-3 py-1 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-xs"
+                        onClick={() => upgradeItem(i, false)}
+                        disabled={player.gold < upgradeCost}
+                        className="px-3 py-1 bg-yellow-900/30 text-yellow-500 border border-yellow-900 hover:bg-yellow-900/50 disabled:opacity-50 text-xs font-bold uppercase"
                       >
-                        Upgrade ({Math.floor(item.value * 0.5 * Math.pow(1.5, item.upgradeLevel || 0))}G)
+                        Upgrade ({upgradeCost}G)
                       </button>
                     </div>
-                  ))}
-                  {player.inventory.length === 0 && (
-                    <div className="text-xs text-gray-600 italic">Inventory is empty.</div>
+                  )})}
+                  {player.inventory.filter(i => i.category === 'Equippable').length === 0 && (
+                    <div className="text-xs text-gray-600 italic">No equippable items in inventory.</div>
                   )}
                 </div>
               </div>
@@ -186,14 +193,14 @@ export const Village: React.FC<VillageProps> = ({
                 {player.inventory.map(item => (
                   <div key={item.id} className="border border-gray-800 bg-black p-3 flex justify-between items-center group">
                     <div>
-                      <div style={{ color: RARITY_COLORS[item.rarity] }} className="text-sm font-bold">
-                        {item.name} {item.upgradeLevel > 0 && `+${item.upgradeLevel}`}
+                      <div style={{ color: RARITY_COLORS[item.rarity] }} className="text-sm font-bold uppercase">
+                        {item.name} {item.category === 'Equippable' && item.upgradeLevel && item.upgradeLevel > 0 ? `+${item.upgradeLevel}` : ''}
                       </div>
                       <div className="text-xs text-gray-500">Value: {getEquipmentValue(item)}</div>
                     </div>
                     <button 
                       onClick={() => sellItem(item)}
-                      className="px-4 py-1 bg-yellow-500/10 hover:bg-yellow-500/30 text-yellow-500 border border-yellow-500/50 rounded text-sm"
+                      className="px-4 py-1 bg-yellow-500/10 hover:bg-yellow-500/30 text-yellow-500 border border-yellow-500/50 rounded text-sm font-bold"
                     >
                       Sell ({item.sellPrice}G)
                     </button>

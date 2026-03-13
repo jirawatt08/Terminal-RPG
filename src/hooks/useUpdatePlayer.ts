@@ -1,5 +1,6 @@
 import React from 'react';
-import { Player } from '../types';
+import { Player, LogType } from '../types';
+import { CalculatedStats } from '../logic/stats';
 
 export function useUpdatePlayer(setPlayer: React.Dispatch<React.SetStateAction<Player>>) {
     const updatePlayer = (updater: (p: Player) => Partial<Player>) => {
@@ -13,7 +14,7 @@ export function useUpdatePlayer(setPlayer: React.Dispatch<React.SetStateAction<P
         updatePlayer(p => ({ gold: p.gold + amount }));
     };
 
-    const addExp = (amount: number, addLog: any, stats: any) => {
+    const addExp = (amount: number, addLog: (msg: string, type: LogType) => void, stats?: CalculatedStats) => {
         setPlayer(prev => {
             let newExp = prev.exp + amount;
             let newLevel = prev.level;

@@ -9,15 +9,15 @@ import {
     isFirebaseConfigured,
     saveRebornRecord
 } from '../services/firebase';
-import { Player } from '../types';
+import { Player, LogType, RebornHistoryEntry } from '../types';
 
 interface UseFirebaseSyncProps {
     player: Player;
     setPlayer: React.Dispatch<React.SetStateAction<Player>>;
-    addLog: (text: string, type?: any) => void;
+    addLog: (text: string, type?: LogType) => void;
 }
 
-const findBestRun = (history: any[]) =>
+const findBestRun = (history: RebornHistoryEntry[]) =>
     [...history].sort((a, b) => b.stage !== a.stage ? b.stage - a.stage : b.level - a.level)[0];
 
 export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncProps) {
@@ -179,11 +179,12 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
         try {
             await signInWithGoogle();
             setShowLoginModal(false);
-        } catch (error: any) {
-            if (error.message.includes('cancelled')) {
-                addLog(error.message, 'warning');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Login failed.';
+            if (message.includes('cancelled')) {
+                addLog(message, 'warning');
             } else {
-                addLog(error.message || 'Login failed.', 'error');
+                addLog(message, 'error');
             }
         } finally {
             setIsLoggingIn(false);
@@ -285,8 +286,9 @@ export function useFirebaseSync({ player, setPlayer, addLog }: UseFirebaseSyncPr
             lastSavedRef.current = JSON.stringify(newData);
             setLastSaveTime(new Date());
             addLog('[SYSTEM] Save file imported successfully.', 'success');
-        } catch (e: any) {
-            addLog(`[SYSTEM] Import failed: ${e.message}`, 'error');
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Unknown error during import.';
+            addLog(`[SYSTEM] Import failed: ${message}`, 'error');
             console.error("Import error:", e);
         }
     };

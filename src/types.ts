@@ -4,8 +4,10 @@ export type ItemType = 'Weapon' | 'Armor' | 'Accessory';
 
 export type EffectType = 'lifesteal' | 'crit' | 'dodge' | 'poison' | 'burn' | 'stun' | 'freeze' | 'luck' | 'statusChance' | 'reduction' | 'expBonus' | 'goldBonus';
 
+export type PotionType = 'exp' | 'coin' | 'luck' | 'health';
+
 export interface PotionEffect {
-  type: 'exp' | 'coin' | 'luck' | 'health';
+  type: PotionType;
   value: number;
   duration: number; // in kills
 }
@@ -51,19 +53,32 @@ export interface StatusEffect {
   value?: number;
 }
 
-export interface Item {
+// Discriminated Union for Items
+export interface BaseItem {
   id: string;
   name: string;
-  type: ItemType;
   rarity: Rarity;
-  value: number; // Base stat (ATK or DEF)
   sellPrice: number;
+  locked?: boolean;
+}
+
+export interface EquippableItem extends BaseItem {
+  category: 'Equippable';
+  type: ItemType;
+  value: number; // Base stat (ATK or DEF)
   effect?: { type: EffectType; value: number };
   stats?: Partial<PlayerStats>;
   setName?: string;
   upgradeLevel?: number;
-  locked?: boolean;
 }
+
+export interface ConsumableItem extends BaseItem {
+  category: 'Consumable';
+  type: 'Potion';
+  effect: PotionEffect;
+}
+
+export type Item = EquippableItem | ConsumableItem;
 
 export type PlayerClass = 'Novice' | 'Warrior' | 'Rogue' | 'Mage' | 'Paladin' | 'Berserker' | 'Assassin' | 'Ranger' | 'Archmage' | 'Necromancer';
 
@@ -78,6 +93,16 @@ export interface PlayerStats {
 export interface PlayerSettings {
   barMode: 'bar' | 'number' | 'percent';
   reduceUi: boolean;
+}
+
+export interface RebornHistoryEntry {
+  id: string;
+  level: number;
+  stage: number;
+  gold: number;
+  monstersKilled: number;
+  bossesKilled: number;
+  timestamp: Date;
 }
 
 export interface Player {
@@ -100,9 +125,9 @@ export interface Player {
   playerClass: PlayerClass;
   inventory: Item[];
   equipment: {
-    weapon: Item | null;
-    armor: Item | null;
-    accessory: Item | null;
+    weapon: EquippableItem | null;
+    armor: EquippableItem | null;
+    accessory: EquippableItem | null;
   };
   autoSell: Record<Rarity, boolean>;
   autoSkill: boolean;
@@ -129,10 +154,17 @@ export interface Player {
   potionMaxBuyUpgrade: number;
   potionQualityUpgrade: number;
   quests: Quest[];
-  rebornHistory: any[]; // Local history of past reburns
+  rebornHistory: RebornHistoryEntry[];
   monstersKilled: number;
   bossesKilled: number;
 }
+
+// Discriminated Union for Game Events (TS 5.8 ready)
+export type GameEvent =
+  | { type: 'ATTACK'; attackerId: string; targetId: string; damage: number; isCrit: boolean; isSkill?: boolean; skillName?: string }
+  | { type: 'LOOT'; item: Item; goldGained: number }
+  | { type: 'LEVEL_UP'; oldLevel: number; newLevel: number; statPointsGained: number }
+  | { type: 'SYNC'; method: 'CLOUD' | 'LOCAL'; timestamp: Date; success: boolean };
 
 export interface EnemySkill {
   name: string;
@@ -163,11 +195,13 @@ export interface Enemy {
 
 export type GameState = 'IDLE' | 'FARMING' | 'BOSS_FIGHT' | 'NEXT_BOSS_FIGHT' | 'VILLAGE' | 'DEAD' | 'SETTINGS' | 'DASHBOARD' | 'PATCHES';
 
+export type LogType = 'info' | 'combat' | 'loot' | 'error' | 'success' | 'system' | 'warning' | 'sell';
+
 export interface LogEntry {
   id: string;
   timestamp: Date;
   text: string;
-  type: 'info' | 'combat' | 'loot' | 'error' | 'success' | 'system' | 'warning';
+  type: LogType;
 }
 
 export interface RebornRecord {
@@ -181,5 +215,5 @@ export interface RebornRecord {
   rebornCount: number;
   monstersKilled: number;
   bossesKilled: number;
-  timestamp: any; // Firestore Timestamp
+  timestamp: Date | { seconds: number; nanoseconds: number }; // Supports both native Date and Firestore Timestamp
 }

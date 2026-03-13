@@ -1,27 +1,38 @@
 import React from 'react';
-import { Player, Item } from '../types';
+import { Player, Item, EquippableItem, LogType } from '../types';
+import { CalculatedStats } from '../logic/stats';
 
 interface UseInventoryProps {
     player: Player;
     setPlayer: React.Dispatch<React.SetStateAction<Player>>;
-    addLog: (msg: string, type?: any) => void;
-    stats: any;
+    addLog: (msg: string, type?: LogType) => void;
+    stats: CalculatedStats;
 }
 
 export function useInventory({ player, setPlayer, addLog, stats }: UseInventoryProps) {
     const equipItem = (item: Item) => {
+        if (item.category !== 'Equippable') {
+            addLog(`Cannot equip ${item.name}. It is a consumable!`, 'error');
+            return;
+        }
+
         setPlayer(prev => {
             const newPlayer = {
                 ...prev,
                 inventory: [...prev.inventory],
                 equipment: { ...prev.equipment }
             };
-            const typeKey = item.type.toLowerCase() as keyof typeof newPlayer.equipment;
+            
+            // TypeScript 5.8: item is narrowed to EquippableItem here
+            const equippable = item as EquippableItem;
+            const typeKey = equippable.type.toLowerCase() as keyof typeof newPlayer.equipment;
             const currentEquipped = newPlayer.equipment[typeKey];
-            newPlayer.inventory = newPlayer.inventory.filter(i => i.id !== item.id);
+            
+            newPlayer.inventory = newPlayer.inventory.filter(i => i.id !== equippable.id);
             if (currentEquipped) newPlayer.inventory.push(currentEquipped);
-            newPlayer.equipment[typeKey] = item;
-            addLog(`Equipped ${item.name}.`, 'system');
+            newPlayer.equipment[typeKey] = equippable;
+            
+            addLog(`Equipped ${equippable.name}.`, 'system');
             return newPlayer;
         });
     };
@@ -64,6 +75,11 @@ export function useInventory({ player, setPlayer, addLog, stats }: UseInventoryP
     };
 
     const upgradeItem = (item: Item, isEquipped: boolean) => {
+        if (item.category !== 'Equippable') {
+            addLog(`Cannot upgrade ${item.name}. Only equipment can be enhanced!`, 'error');
+            return;
+        }
+
         const currentLevel = item.upgradeLevel || 0;
         const cost = Math.floor(item.value * 0.5 * Math.pow(1.5, currentLevel));
         if (player.gold < cost) {
@@ -79,10 +95,10 @@ export function useInventory({ player, setPlayer, addLog, stats }: UseInventoryP
             };
             newPlayer.gold -= cost;
 
-            const upgradedItem = { ...item, upgradeLevel: currentLevel + 1 };
+            const upgradedItem: EquippableItem = { ...item, upgradeLevel: currentLevel + 1 };
 
             if (isEquipped) {
-                newPlayer.equipment[item.type.toLowerCase() as keyof typeof newPlayer.equipment] = upgradedItem;
+                newPlayer.equipment[upgradedItem.type.toLowerCase() as keyof typeof newPlayer.equipment] = upgradedItem;
             } else {
                 const idx = newPlayer.inventory.findIndex(i => i.id === item.id);
                 if (idx !== -1) newPlayer.inventory[idx] = upgradedItem;

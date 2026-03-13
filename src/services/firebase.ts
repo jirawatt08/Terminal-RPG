@@ -1,7 +1,8 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { initializeFirestore, collection, doc, setDoc, getDoc, query, orderBy, limit, getDocs, addDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getAnalytics } from "firebase/analytics";
+import { initializeApp, FirebaseApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, Auth, User } from 'firebase/auth';
+import { initializeFirestore, collection, doc, setDoc, getDoc, query, orderBy, limit, getDocs, serverTimestamp, enableIndexedDbPersistence, Firestore, DocumentData } from 'firebase/firestore';
+import { getAnalytics, Analytics } from "firebase/analytics";
+import { Player, RebornRecord } from '../types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,11 +17,11 @@ const firebaseConfig = {
 // Check if Firebase config is valid before initializing
 const isFirebaseConfigured = !!firebaseConfig.apiKey;
 
-let app: any;
-let auth: any;
-let db: any;
-let googleProvider: any;
-let analytics: any;
+let app: FirebaseApp | undefined;
+let auth: Auth;
+let db: Firestore;
+let googleProvider: GoogleAuthProvider;
+let analytics: Analytics | undefined;
 
 if (isFirebaseConfigured) {
   try {
@@ -53,9 +54,10 @@ if (isFirebaseConfigured) {
   console.warn("[FIREBASE] Config is missing! Check your .env file or VITE_ secrets.");
 }
 
+// @ts-ignore - Exporting even if undefined to satisfy imports elsewhere
 export { auth, db, googleProvider, isFirebaseConfigured, analytics };
 
-export const signInWithGoogle = async () => {
+export const signInWithGoogle = async (): Promise<User> => {
   if (!isFirebaseConfigured) {
     const error = new Error("Firebase is not configured. Please add your API keys in Settings > Secrets.");
     console.error(error.message);
@@ -86,7 +88,7 @@ export const signInWithGoogle = async () => {
   }
 };
 
-export const logout = async () => {
+export const logout = async (): Promise<void> => {
   if (!isFirebaseConfigured) return;
   try {
     await signOut(auth);
@@ -119,7 +121,7 @@ const FIELD_MAP: Record<string, string> = {
 const ITEM_MAP: Record<string, string> = {
   id: 'id', name: 'n', type: 't', rarity: 'r', value: 'v',
   sellPrice: 'p', effect: 'ef', setName: 'sn', upgradeLevel: 'ul',
-  stats: 'st'
+  stats: 'st', category: 'cat'
 };
 
 const compressData = (data: any): any => {
@@ -127,7 +129,7 @@ const compressData = (data: any): any => {
   if (data === null || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(compressData).filter(v => v !== undefined);
 
-  const compressed: any = {};
+  const compressed: Record<string, any> = {};
   for (const [key, value] of Object.entries(data)) {
     if (value === undefined) continue;
     const shortKey = FIELD_MAP[key] || ITEM_MAP[key] || key;
@@ -142,11 +144,11 @@ const compressData = (data: any): any => {
 const reverseFieldMap = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [v, k]));
 const reverseItemMap = Object.fromEntries(Object.entries(ITEM_MAP).map(([k, v]) => [v, k]));
 
-const decompressData = (data: any): any => {
+const decompressData = (data: DocumentData): any => {
   if (!data || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(decompressData);
 
-  const decompressed: any = {};
+  const decompressed: Record<string, any> = {};
   for (const [key, value] of Object.entries(data)) {
     const longKey = reverseFieldMap[key] || reverseItemMap[key] || key;
     // Only recurse if it's a plain object or array
@@ -158,7 +160,7 @@ const decompressData = (data: any): any => {
 };
 
 // Database helpers
-export const savePlayerData = async (uid: string, data: any) => {
+export const savePlayerData = async (uid: string, data: Partial<Player>): Promise<void> => {
   if (!isFirebaseConfigured) {
     console.warn("[FIREBASE] Cannot save: Firebase config missing.");
     return;
@@ -186,7 +188,7 @@ export const savePlayerData = async (uid: string, data: any) => {
   }
 };
 
-export const getPlayerData = async (uid: string) => {
+export const getPlayerData = async (uid: string): Promise<Player | null> => {
   if (!isFirebaseConfigured) return null;
   try {
     console.log(`[FIREBASE] Fetching data for ${uid}...`);
@@ -194,7 +196,7 @@ export const getPlayerData = async (uid: string) => {
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
-      const decompressed = decompressData(data);
+      const decompressed = decompressData(data) as Player;
       console.log("[FIREBASE] Data retrieved & reconstructed:", {
         level: decompressed.level,
         gold: decompressed.gold,
@@ -215,7 +217,7 @@ export const getPlayerData = async (uid: string) => {
   }
 };
 
-export const saveRebornRecord = async (record: any) => {
+export const saveRebornRecord = async (record: Partial<RebornRecord> & { uid: string }): Promise<void> => {
   if (!isFirebaseConfigured) return;
   try {
     const docRef = doc(db, 'records', record.uid);
@@ -272,12 +274,9 @@ export const saveRebornRecord = async (record: any) => {
   }
 };
 
-export const getGlobalRecords = async (limitCount: number = 50) => {
+export const getGlobalRecords = async (limitCount: number = 50): Promise<RebornRecord[]> => {
   if (!isFirebaseConfigured) return [];
   try {
-    // Try to query by stage first for a better leaderboard experience
-    // Note: This might require an index in Firestore if combined with other filters, 
-    // but for a simple collection query it usually works or provides a link to create the index.
     const q = query(
       collection(db, 'records'), 
       orderBy('stage', 'desc'),
@@ -299,23 +298,21 @@ export const getGlobalRecords = async (limitCount: number = 50) => {
 
     const records = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        // If data was compressed (legacy), decompress it, otherwise use as-is
-        // Legacy records used 's' for stage, 'l' for level
         const decompressed = data.s ? decompressData(data) : data;
         
-        // Ensure stage and level are numbers for sorting
-        // We use Math.floor here as well to be consistent with the "simple number" requirement
         return { 
             id: doc.id, 
             ...decompressed,
             stage: Math.floor(Number(decompressed.stage ?? decompressed.s ?? 0)),
             level: Math.floor(Number(decompressed.level ?? decompressed.l ?? 0)),
             gold: Math.floor(Number(decompressed.gold ?? decompressed.g ?? 0)),
-            rebornCount: Math.floor(Number(decompressed.rebornCount ?? decompressed.rc ?? 0))
-        };
+            rebornCount: Math.floor(Number(decompressed.rebornCount ?? decompressed.rc ?? 0)),
+            monstersKilled: Math.floor(Number(decompressed.monstersKilled ?? 0)),
+            bossesKilled: Math.floor(Number(decompressed.bossesKilled ?? 0)),
+            timestamp: decompressed.timestamp || null
+        } as RebornRecord;
     });
 
-    // Final sort to handle ties in stage with level, and to sort properly if we used fallback timestamp query
     return records.sort((a, b) => {
         if (b.stage !== a.stage) return b.stage - a.stage;
         if (b.level !== a.level) return b.level - a.level;

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, GameState, Item, StatusEffect } from '../types';
+import { Player, Enemy, GameState, Item, StatusEffect, LogType, StatusEffectType, EquippableItem } from '../types';
 import { generateEnemy, generateEnemies, generateLoot } from '../utils';
 import { CLASS_SKILLS } from '../constants';
+import { CalculatedStats } from '../logic/stats';
+import { calculateAttack, processStatusTick } from '../logic/combatRules';
 
 interface UseCombatProps {
     player: Player;
     setPlayer: React.Dispatch<React.SetStateAction<Player>>;
-    addLog: (msg: string, type?: any) => void;
-    stats: any;
+    addLog: (msg: string, type?: LogType) => void;
+    stats: CalculatedStats;
     queuedSkillRef: React.MutableRefObject<boolean>;
 }
 
@@ -20,182 +22,133 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
 
     // Sub-functions for Combat Tick
     const processPlayerStatusEffects = (p: Player) => {
-        let isStunned = false;
-        p.statusEffects = p.statusEffects.filter(effect => {
-            if (effect.type === 'poison' || effect.type === 'burn') {
-                p.hp -= (effect.value || 5);
-                addLog(`[STATUS] You took ${effect.value || 5} damage from ${effect.type}.`, 'error');
-            } else if (effect.type === 'stun' || effect.type === 'freeze') {
-                isStunned = true;
-            }
-            effect.duration -= 1;
-            return effect.duration > 0;
-        });
+        const { tickDamage, isStunned, remainingEffects } = processStatusTick(p);
+        
+        if (tickDamage > 0) {
+            p.hp -= tickDamage;
+            addLog(`[STATUS] You took ${tickDamage} damage from status effects.`, 'error');
+        }
+        
+        p.statusEffects = remainingEffects;
         return isStunned;
     };
 
     const handlePlayerTurn = (p: Player, enemies: Enemy[]) => {
-        const { totalAttack, totalMagicAttack, critChance, finalCritDmg, lifesteal, totalStatusChance, maxHp, totalDefense, totalStr, totalInt, skillHaste } = statsRef.current;
-        
-        let isCrit = Math.random() * 100 < critChance;
+        const currentStats = statsRef.current;
         const skills = CLASS_SKILLS[p.playerClass as keyof typeof CLASS_SKILLS] || [];
         const skill = [...skills].reverse().find(s => p.level >= s.unlockLevel);
         const canCastSkill = skill && p.mp >= skill.cost && p.skillCooldown <= 0;
         const shouldCastSkill = canCastSkill && (p.autoSkill || queuedSkillRef.current);
 
         let targets = [enemies[0]];
-        let rawDamage = 0;
         let usedSkill = false;
 
         if (shouldCastSkill && skill) {
             usedSkill = true;
             p.mp -= skill.cost;
-            // Apply Skill Haste (CDR)
-            const actualCooldown = Math.max(1, Math.floor(skill.cooldown * (1 - (skillHaste || 0) / 100)));
+            const actualCooldown = Math.max(1, Math.floor(skill.cooldown * (1 - (currentStats.skillHaste || 0) / 100)));
             p.skillCooldown = actualCooldown;
             queuedSkillRef.current = false;
             if (skill.aoe) targets = [...enemies];
-            
-            // Scaled Damage Formula: Raw * SkillMult * (1 + Attribute/100)
-            if (skill.type === 'physical') {
-                rawDamage = Math.floor(totalAttack * skill.mult * (1 + totalStr / 100));
-            } else {
-                rawDamage = Math.floor(totalMagicAttack * skill.mult * (1 + totalInt / 100));
-            }
-            
-            if (skill.guaranteedCrit) isCrit = true;
-        } else {
-            rawDamage = totalAttack + Math.floor(Math.random() * 5);
         }
-
-        if (isCrit) rawDamage = Math.floor(rawDamage * finalCritDmg);
 
         let totalHeal = 0;
         targets.forEach(target => {
-            const passive = target.passive;
-            
-            if (passive?.type === 'dodge' && Math.random() * 100 < passive.value) {
-                addLog(`> MISSED! ${target.name} dodged.`, 'info');
-                return;
+            const result = calculateAttack(
+                { name: p.displayName || 'Player', stats: currentStats },
+                target,
+                { skill: usedSkill ? skill : undefined, isPlayerAttacking: true }
+            );
+
+            result.logs.forEach(log => addLog(log.text, log.type));
+
+            if (result.isDodged) return;
+
+            addLog(`> ${result.isCrit ? 'CRITICAL ' : ''}${usedSkill ? '[' + skill!.name + ']' : 'Attack'} on ${target.name} for ${result.damage} dmg.`, 'combat');
+            target.hp -= result.damage;
+
+            if (result.statusApplied) {
+                target.statusEffects.push(result.statusApplied);
+                addLog(`> ${skill!.name} applied ${result.statusApplied.type} to ${target.name}!`, 'success');
             }
 
-            // Damage Reduction Formula: Final = Raw * (100 / (100 + Defense))
-            const effectiveDef = target.defense;
-            const damageFactor = 100 / (100 + effectiveDef);
-            let finalDmg = Math.max(1, Math.floor(rawDamage * damageFactor));
-            
-            if (passive?.type === 'shield') finalDmg = Math.floor(finalDmg * (1 - passive.value / 100));
-
-            addLog(`> ${isCrit ? 'CRITICAL ' : ''}${usedSkill ? '[' + skill!.name + ']' : 'Attack'} on ${target.name} for ${finalDmg} dmg.`, 'combat');
-            target.hp -= finalDmg;
-
-            // Apply Skill Status Effect
-            if (usedSkill && skill?.statusEffect) {
-                if (Math.random() * 100 < skill.statusEffect.chance) {
-                    if (Math.random() * 100 < target.statusResistance) {
-                        addLog(`> ${target.name} resisted the ${skill.name} effect!`, 'info');
-                    } else {
-                        target.statusEffects.push({
-                            type: skill.statusEffect.type,
-                            duration: skill.statusEffect.duration,
-                            value: skill.type === 'magic' ? Math.floor(totalMagicAttack * 0.5) : Math.floor(totalAttack * 0.5)
-                        });
-                        addLog(`> ${skill.name} applied ${skill.statusEffect.type} to ${target.name}!`, 'success');
-                    }
-                }
-            }
-
-            // Passive Procs: Thorns/Reflect
-            if (passive?.type === 'thorns' || passive?.type === 'reflect') {
-                const reflect = Math.floor(finalDmg * (passive.value / 100));
-                p.hp -= reflect;
-                addLog(`[PASSIVE] ${target.name} reflected ${reflect} damage!`, 'error');
+            if (result.reflectedDamage > 0) {
+                p.hp -= result.reflectedDamage;
+                addLog(`[PASSIVE] ${target.name} reflected ${result.reflectedDamage} damage!`, 'error');
             }
 
             // Status Procs from Equipment
             Object.values(p.equipment).forEach(item => {
-                const i = item as Item | null;
+                const i = item as EquippableItem | null;
                 if (i?.effect && ['poison', 'burn', 'stun', 'freeze'].includes(i.effect.type)) {
-                    if ((Math.floor(Math.random() * 10) + 1) <= totalStatusChance) {
+                    if ((Math.floor(Math.random() * 10) + 1) <= currentStats.totalStatusChance) {
                         if (Math.random() * 100 < target.statusResistance) {
                             addLog(`> ${target.name} resisted the ${i.effect.type}!`, 'info');
                             return;
                         }
 
                         let val = i.effect.value;
-                        if (i.effect.type === 'poison') val = Math.min(Math.floor(target.maxHp * 0.05), totalAttack * 10);
-                        else if (i.effect.type === 'burn') val = Math.min(Math.floor(totalDefense * 0.5), totalAttack * 5);
-                        target.statusEffects.push({ type: i.effect.type as any, duration: 3, value: val });
+                        if (i.effect.type === 'poison') val = Math.min(Math.floor(target.maxHp * 0.05), currentStats.totalAttack * 10);
+                        else if (i.effect.type === 'burn') val = Math.min(Math.floor(currentStats.totalDefense * 0.5), currentStats.totalAttack * 5);
+                        target.statusEffects.push({ type: i.effect.type as StatusEffectType, duration: 3, value: val });
                         addLog(`> Applied ${i.effect.type} to ${target.name}!`, 'success');
                     }
                 }
             });
 
-            if (lifesteal > 0) totalHeal += Math.floor(finalDmg * (lifesteal / 100));
+            if (currentStats.lifesteal > 0) totalHeal += Math.floor(result.damage * (currentStats.lifesteal / 100));
         });
 
         if (totalHeal > 0) {
-            p.hp = Math.min(maxHp, p.hp + totalHeal);
+            p.hp = Math.min(currentStats.maxHp, p.hp + totalHeal);
             addLog(`> Lifesteal restored ${totalHeal} HP.`, 'success');
         }
     };
 
     const handleEnemyTurn = (p: Player, enemy: Enemy) => {
-        const { totalDefense, dodgeChance, reduction, maxHp } = statsRef.current;
+        const currentStats = statsRef.current;
+        const { tickDamage, isStunned, remainingEffects } = processStatusTick(enemy);
         
-        let isStunned = false;
-        enemy.statusEffects = enemy.statusEffects.filter(e => {
-            if (e.type === 'poison' || e.type === 'burn') {
-                enemy.hp -= (e.value || 5);
-                addLog(`[STATUS] ${enemy.name} took damage from ${e.type}.`, 'success');
-            } else if (e.type === 'stun' || e.type === 'freeze') isStunned = true;
-            e.duration -= 1;
-            return e.duration > 0;
-        });
+        if (tickDamage > 0) {
+            enemy.hp -= tickDamage;
+            addLog(`[STATUS] ${enemy.name} took ${tickDamage} damage from status effects.`, 'success');
+        }
+        enemy.statusEffects = remainingEffects;
 
         if (enemy.hp <= 0 || isStunned) {
             if (isStunned) addLog(`< ${enemy.name} is incapacitated!`, 'info');
             return;
         }
 
-        if (Math.random() * 100 < dodgeChance) {
+        const result = calculateAttack(
+            { name: enemy.name, stats: { totalAttack: enemy.attack, critChance: enemy.critChance, finalCritDmg: enemy.critDamage } },
+            p,
+            { 
+                skill: (enemy.skill && enemy.skill.currentCooldown <= 0) ? enemy.skill : undefined, 
+                isPlayerAttacking: false 
+            }
+        );
+
+        result.logs.forEach(log => addLog(log.text, log.type));
+
+        if (result.isDodged) {
             addLog(`< EVADED! ${enemy.name}'s attack missed.`, 'success');
             return;
         }
 
-        let rawDamage = 0;
-        let isEnemyCrit = Math.random() * 100 < enemy.critChance;
-
         if (enemy.skill && enemy.skill.currentCooldown <= 0) {
-            rawDamage = Math.floor(enemy.attack * enemy.skill.mult);
             enemy.skill.currentCooldown = enemy.skill.cooldown;
+            addLog(`< ${result.isCrit ? 'CRITICAL ' : ''}[SKILL] ${enemy.name} used ${enemy.skill.name} for ${result.damage} dmg!`, 'error');
         } else {
-            rawDamage = enemy.attack;
             if (enemy.skill) enemy.skill.currentCooldown -= 1;
-        }
-        
-        if (isEnemyCrit) rawDamage = Math.floor(rawDamage * enemy.critDamage);
-
-        // Damage Reduction Formula: Final = Raw * (100 / (100 + EffectiveDefense))
-        // Effective Defense = Defense * (1 - Penetration / 100)
-        const effectiveDef = totalDefense * (1 - enemy.armorPenetration / 100);
-        const damageFactor = 100 / (100 + effectiveDef);
-        let dmg = Math.max(1, Math.floor(rawDamage * damageFactor));
-
-        if (enemy.skill && enemy.skill.currentCooldown === enemy.skill.cooldown) {
-            addLog(`< ${isEnemyCrit ? 'CRITICAL ' : ''}[SKILL] ${enemy.name} used ${enemy.skill.name} for ${dmg} dmg!`, 'error');
-        } else {
-            addLog(`< ${isEnemyCrit ? 'CRITICAL ' : ''}${enemy.name} attacked for ${dmg} dmg.`, 'error');
+            addLog(`< ${result.isCrit ? 'CRITICAL ' : ''}${enemy.name} attacked for ${result.damage} dmg.`, 'error');
         }
 
-        if (enemy.passive?.type === 'berserk' && enemy.hp < enemy.maxHp * 0.3) dmg = Math.floor(dmg * (1 + enemy.passive.value / 100));
-        if (reduction > 0) dmg = Math.floor(dmg * (1 - reduction / 100));
-        p.hp -= dmg;
+        p.hp -= result.damage;
 
         // Player Damage Reflection (Reflex Set)
-        const { setReflection } = statsRef.current;
-        if (setReflection > 0 && dmg > 0) {
-            const reflected = Math.floor(dmg * (setReflection / 100));
+        if (currentStats.setReflection > 0 && result.damage > 0) {
+            const reflected = Math.floor(result.damage * (currentStats.setReflection / 100));
             if (reflected > 0) {
                 enemy.hp -= reflected;
                 addLog(`[SET] Reflected ${reflected} damage back to ${enemy.name}!`, 'success');
@@ -205,14 +158,14 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
         // Auto-Heal
         const potion = p.potions.find(pot => pot.type === 'health');
         if (p.autoHealUnlocked && p.autoHealEnabled && potion && potion.duration > 0) {
-            if ((p.hp / maxHp) * 100 <= p.autoHealThreshold && p.hp > 0) {
-                const heal = Math.floor(maxHp * 0.3 * (1 + (p.potionQualityUpgrade * 0.25)));
-                p.hp = Math.min(maxHp, p.hp + heal);
+            if ((p.hp / currentStats.maxHp) * 100 <= p.autoHealThreshold && p.hp > 0) {
+                const heal = Math.floor(currentStats.maxHp * 0.3 * (1 + (p.potionQualityUpgrade * 0.25)));
+                p.hp = Math.min(currentStats.maxHp, p.hp + heal);
                 potion.duration -= 1;
                 addLog(`[AUTO-HEAL] Used health potion! (+${heal} HP)`, 'success');
             }
         }
-        if (enemy.passive?.type === 'lifesteal') enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(dmg * (enemy.passive.value / 100)));
+        if (enemy.passive?.type === 'lifesteal') enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(result.damage * (enemy.passive.value / 100)));
     };
 
     // Main Loop
@@ -351,7 +304,7 @@ export function useCombat({ player, setPlayer, addLog, stats, queuedSkillRef }: 
 
     const showHelp = () => {
         addLog('==================================================', 'system');
-        addLog('TERMINAL RPG v2.7 - SYSTEM DOCUMENTATION', 'system');
+        addLog('TERMINAL RPG v3.0 - SYSTEM DOCUMENTATION', 'system');
         addLog('==================================================', 'system');
         addLog('SKILL OVERDRIVE:', 'info');
         addLog('- Skills scale with your primary attribute (STR/INT).', 'info');

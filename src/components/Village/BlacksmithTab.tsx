@@ -1,28 +1,30 @@
 import React from 'react';
 import { useGame } from '../../context/GameContext';
-import { Item } from '../../types';
+import { Item, EquippableItem } from '../../types';
 import { RARITY_COLORS } from '../../constants';
 
 export const BlacksmithTab: React.FC = () => {
     const { player, stats, actions } = useGame();
 
     const renderItem = (item: Item, isEquipped: boolean) => {
-        const currentLevel = item.upgradeLevel || 0;
-        const cost = Math.floor(item.value * 0.5 * Math.pow(1.5, currentLevel));
+        if (item.category !== 'Equippable') return null;
+        const equippable = item as EquippableItem;
+        const currentLevel = equippable.upgradeLevel || 0;
+        const cost = Math.floor(equippable.value * 0.5 * Math.pow(1.5, currentLevel));
         const canAfford = player.gold >= cost;
 
         return (
-            <div key={item.id} className="border border-[#00ff00]/10 bg-[#00ff00]/5 p-3 flex justify-between items-center group hover:border-[#00ff00]/30 transition-all">
+            <div key={equippable.id} className="border border-[#00ff00]/10 bg-[#00ff00]/5 p-3 flex justify-between items-center group hover:border-[#00ff00]/30 transition-all">
                 <div>
-                    <div className={`text-sm font-bold ${RARITY_COLORS[item.rarity]} tracking-widest uppercase`}>
-                        {item.name} {currentLevel > 0 ? `+${currentLevel}` : ''}
+                    <div className={`text-sm font-bold ${RARITY_COLORS[equippable.rarity]} tracking-widest uppercase`}>
+                        {equippable.name} {currentLevel > 0 ? `+${currentLevel}` : ''}
                     </div>
                     <div className="text-[10px] text-[#00ff00]/40 uppercase tracking-tighter">
-                        Base Value: {Math.floor(stats.getEquipmentValue(item))}
+                        Base Value: {Math.floor(stats.getEquipmentValue(equippable))}
                     </div>
                 </div>
                 <button
-                    onClick={() => actions.upgradeItem(item, isEquipped)}
+                    onClick={() => actions.upgradeItem(equippable, isEquipped)}
                     disabled={!canAfford}
                     className={`px-3 py-1 border transition-all text-[10px] font-bold uppercase tracking-widest ${canAfford ? 'border-yellow-600 text-yellow-600 hover:bg-yellow-600/10' : 'border-gray-800 text-gray-800 opacity-50 cursor-not-allowed'}`}
                 >
